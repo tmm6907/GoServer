@@ -15,26 +15,45 @@ curl -o out.json "localhost:8080/scores/address?address=1600%20Pennsylvania%20Av
 curl -o out.json "localhost:8080/scores"
 
 //Get list of scores with limit and offset
-curl -o out.json "localhost:8080/scores?limit=100&offset=13000"
+curl -o out.json "localhost:8080/scores?limit=3&offset=13000"
 ```
 
 ### Output *out.json*
-Where **NWI** is the total score of walkability for the given area.
+Where **nwi** is the total score of walkability for the given area.
 ```json
 {
-  "ID": 61619,
-  "CreatedAt": "2023-05-08T13:23:44.908-04:00",
-  "UpdatedAt": "2023-05-08T13:23:44.908-04:00",
-  "DeletedAt": null,
-  "Geoid": 110010062021,
-  "D2b_e8mixa": 0.6762555900022726,
-  "D2a_ephhm": 0.6034773843169735,
-  "D3b": 357.6078250368002,
-  "D4a": 77.78,
-  "D2a_ranked": 13,
-  "D2b_ranked": 15,
-  "D3b_ranked": 20,
-  "D4a_ranked": 20,
-  "NWI": 18
+  "geoid": 110010062021,
+  "nwi": 18,
+  "searchedAddress": "1600 Pennsylvania Avenue NW, Washington, DC 20500"
 }
+
+{
+  "geoid": 110010062021,
+  "nwi": 18,
+  "searchedAddress": "1600 Pennsylvania Avenue NW, Washington DC"
+}
+
+[
+  {
+    "id": 13000,
+    "geoid": 484599504002,
+    "csa_name": "",
+    "cbsa_name": "Longview, TX",
+    "nwi": 6.166666666666667
+  },
+  {
+    "id": 13001,
+    "geoid": 484599505001,
+    "csa_name": "",
+    "cbsa_name": "Longview, TX",
+    "nwi": 3.5
+  },
+  {
+    "id": 13002,
+    "geoid": 484599501006,
+    "csa_name": "",
+    "cbsa_name": "Longview, TX",
+    "nwi": 2.8333333333333335
+  }
+]
 ```
