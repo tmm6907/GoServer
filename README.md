@@ -1,7 +1,7 @@
 # Open-NWI API
 
 ## Purporse
-An open-source API to access EPA's National Walkability Index for address in the US.
+An open-source API to access EPA's National Walkability Index for any address recognized by US Census Geocoding.
 ## Usage
 ### Input
 ```
