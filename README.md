@@ -19,7 +19,7 @@ curl -o out.json "localhost:8080/scores?limit=3&offset=13000"
 ```
 
 ### Output *out.json*
-Where **nwi** is the total score of walkability for the given area.
+Where **nwi** is the total score of walkability for the given area. Scores range from 0-20.
 ```js
 // address with zipcode
 {
