@@ -80,7 +80,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	go repopulateGroupTracts(db)
+	// go repopulateGroupTracts(db)
 	router := gin.Default()
 	group_tracts.RegisterRoutes(router, db)
 	router.GET("/", func(ctx *gin.Context) {

@@ -32,14 +32,14 @@ type GeoidDetail struct {
 type CSA struct {
 	gorm.Model
 	Geoid    uint64
-	CSA      uint16 `gorm:"primary_key;uniqueIndex;"`
+	CSA      uint16
 	CSA_name string
 }
 
 type CBSA struct {
 	gorm.Model
 	Geoid     uint64
-	CBSA      uint32 `gorm:"primary_key;uniqueIndex;"`
+	CBSA      uint32
 	CBSA_name string
 }
 

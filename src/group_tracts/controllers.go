@@ -15,7 +15,6 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB) {
 	}
 
 	routes := router.Group("/scores")
-	routes.GET("/:id", h.GetScore)
 	routes.GET("/address", h.GetScoreByAddress)
 	routes.GET("/", h.GetScores)
 }

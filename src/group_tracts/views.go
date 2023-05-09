@@ -109,26 +109,30 @@ type AddressMatch struct {
 }
 type AddressMatches []AddressMatch
 
-type Result struct {
+type ResultData struct {
 	Input          Input          `json:"input"`
 	AddressMatches AddressMatches `json:"addressMatches"`
 }
 
 type GeoCodingResult struct {
-	Result Result `json:"result"`
+	Result ResultData `json:"result"`
 }
 
-func (h handler) GetScore(ctx *gin.Context) {
-	id := ctx.Param("id")
-	var group_tract GroupTract
-
-	if result := h.DB.First(&group_tract, id); result.Error != nil {
-		ctx.AbortWithError(http.StatusNotFound, result.Error)
-		return
-	}
-
-	ctx.JSON(http.StatusOK, &group_tract)
+type AddressScoreResult struct {
+	Geoid           uint64  `json:"geoid"`
+	NWI             float64 `json:"nwi"`
+	SearchedAddress string  `json:"searchedAddress"`
 }
+
+type ScoreResult struct {
+	ID        int     `json:"id"`
+	Geoid     uint64  `json:"geoid"`
+	CSA_name  string  `json:"csa_name"`
+	CBSA_name string  `json:"cbsa_name"`
+	NWI       float64 `json:"nwi"`
+}
+
+type ScoreResults []ScoreResult
 
 func (h handler) GetScoreByAddress(ctx *gin.Context) {
 	address := strings.ReplaceAll(ctx.Query("address"), " ", "%20")
@@ -171,18 +175,23 @@ func (h handler) GetScoreByAddress(ctx *gin.Context) {
 			}
 		}()
 	}
-	var group_tract GroupTract
+	var score Rank
 	geoid10, err := strconv.ParseUint(<-geoid, 10, 64)
 	if err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
+		ctx.AbortWithError(http.StatusNotFound, err)
 		return
 	}
 	fmt.Println(geoid10)
-	if result := h.DB.Where(&GroupTract{Geoid10: geoid10}).First(&group_tract); result.Error != nil {
+	if result := h.DB.Where(&Rank{Geoid: geoid10}).First(&score); result.Error != nil {
 		ctx.AbortWithError(http.StatusNotFound, result.Error)
 		return
 	}
-	ctx.JSON(http.StatusOK, &group_tract)
+	result := AddressScoreResult{
+		Geoid:           geoid10,
+		NWI:             score.NWI,
+		SearchedAddress: ctx.Query("address"),
+	}
+	ctx.JSON(http.StatusOK, &result)
 }
 
 func (h handler) GetScores(ctx *gin.Context) {
@@ -203,6 +212,27 @@ func (h handler) GetScores(ctx *gin.Context) {
 		ctx.AbortWithError(http.StatusNotFound, result.Error)
 		return
 	}
+	results := ScoreResults{}
+	for i := range scores {
+		var csa CSA
+		var cbsa CBSA
+		if csa_result := h.DB.Where("geoid=?", scores[i].Geoid).First(&csa); csa_result.Error != nil {
+			csa.CSA_name = ""
+		}
+		if cbsa_result := h.DB.Where("geoid=?", scores[i].Geoid).First(&cbsa); cbsa_result.Error != nil {
+			cbsa.CBSA_name = ""
+		}
+		results = append(
+			results,
+			ScoreResult{
+				ID:        i + offset,
+				Geoid:     scores[i].Geoid,
+				CSA_name:  csa.CSA_name,
+				CBSA_name: cbsa.CBSA_name,
+				NWI:       scores[i].NWI,
+			},
+		)
+	}
 
-	ctx.JSON(http.StatusOK, &scores)
+	ctx.JSON(http.StatusOK, &results)
 }
