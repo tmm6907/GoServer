@@ -1,6 +1,5 @@
 *.csv
 *.code-workspace
-*.exe
 go.mod
 go.sum
 envs/
