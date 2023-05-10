@@ -7,8 +7,6 @@ import (
 	"strconv"
 )
 
-const CSV_FILE string = "Natl_WI.csv"
-
 func ReadData(fileName string) ([][]string, error) {
 
 	f, err := os.Open(fileName)

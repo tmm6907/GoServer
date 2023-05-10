@@ -12,8 +12,6 @@ import (
 )
 
 const RANGE_LIMIT int = 100
-const ENV_FILE = "./envs/.env"
-const ZIPCODE_FILE string = "zip07_cbsa06.csv"
 
 type scoresQuery struct {
 	limit  int

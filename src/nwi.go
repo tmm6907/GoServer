@@ -14,11 +14,10 @@ import (
 	group_tracts "nwi.io/nwi/group_tracts"
 )
 
-const DB_FILE = "Natl_WI.csv"
-const CBSA_TRANSIT_FILE = "CBSA_Public_Transit_Usage.csv"
-const CBSA_BIKE_FILE = "CBSA_Bicylce_Ridership.csv"
-const ENV_FILE = "./envs/.env"
-const ZIPCODE_FILE string = "zip07_cbsa06.csv"
+const DB_FILE = "gs://open-nwi/Natl_WI.csv"
+const CBSA_TRANSIT_FILE = "gs://open-nwi/CBSA_Public_Transit_Usage.csv"
+const CBSA_BIKE_FILE = "gs://open-nwi/CBSA_Bicylce_Ridership.csv"
+const ZIPCODE_FILE string = "gs://open-nwi/zip07_cbsa06.csv"
 const RANGE = 500
 
 func crete_entry(db *gorm.DB, data []group_tracts.GroupTract, i int, create_range int) *gorm.DB {

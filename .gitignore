@@ -1,6 +1,4 @@
 *.csv
 *.code-workspace
-go.mod
-go.sum
 envs/
 hello
