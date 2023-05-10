@@ -3,11 +3,12 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"sync"
 
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
+	_ "github.com/go-sql-driver/mysql"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	group_tracts "nwi.io/nwi/group_tracts"
@@ -129,6 +130,7 @@ func repopulateGroupTracts(db *gorm.DB, wg *sync.WaitGroup) {
 
 func init_db(url string) (*gorm.DB, error) {
 	// Initialize
+
 	db, err := gorm.Open(mysql.Open(url), &gorm.Config{})
 	if err != nil {
 		return nil, err
@@ -148,10 +150,33 @@ func init_db(url string) (*gorm.DB, error) {
 }
 
 func main() {
-	viper.SetConfigFile(ENV_FILE)
-	viper.ReadInConfig()
-	port := viper.Get("PORT").(string)
-	dbUrl := viper.Get("DB_URL").(string)
+	port := os.Getenv("PORT")
+	if port == "" {
+		log.Fatalf("Fatal Error in connect_unix.go: %s environment variable not set.", port)
+	}
+	dbUser := os.Getenv("DB_USER")
+	if dbUser == "" {
+		log.Fatalf("Fatal Error in connect_unix.go: %s environment variable not set.", dbUser)
+	}
+	dbPass := os.Getenv("DB_PASS")
+	if dbPass == "" {
+		log.Fatalf("Fatal Error in connect_unix.go: %s environment variable not set.", dbPass)
+	}
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		log.Fatalf("Fatal Error in connect_unix.go: %s environment variable not set.", dbName)
+	}
+	connectionName := os.Getenv("CLOUD_SQL_CONNECTION_NAME")
+	if connectionName == "" {
+		log.Fatalf("Fatal Error in connect_unix.go: %s environment variable not set.", connectionName)
+	}
+	dbUrl := fmt.Sprintf(
+		"%s:%s@unix(%s)/%s?parseTime=true",
+		dbUser,
+		dbPass,
+		"/cloudsql/"+connectionName,
+		dbName,
+	)
 	db, err := init_db(dbUrl)
 	if err != nil {
 		log.Fatalln(err)
