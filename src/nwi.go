@@ -149,7 +149,7 @@ func init_db(url string) (*gorm.DB, error) {
 }
 
 func main() {
-	port := os.Getenv("PORT")
+	port := os.Getenv("INTERNAL_PORT")
 	if port == "" {
 		log.Fatalf("Fatal Error in connect_unix.go: %s environment variable not set.", port)
 	}
