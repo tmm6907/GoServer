@@ -180,12 +180,12 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	// var wg sync.WaitGroup
-	// wg.Add(1)
-	// go repopulateGroupTracts(db, &wg)
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go repopulateGroupTracts(db, &wg)
 	// go addCBSA_Usage(db, &wg)
-	// go addBikeRidership(db, &wg)
-	// go createZipToCBSA(db, &wg)
+	go addBikeRidership(db, &wg)
+	go createZipToCBSA(db, &wg)
 	router := gin.Default()
 	group_tracts.RegisterRoutes(router, db)
 	router.GET("/", func(ctx *gin.Context) {
@@ -194,5 +194,5 @@ func main() {
 		})
 	})
 	router.Run(port)
-	// wg.Wait()
+	wg.Wait()
 }
