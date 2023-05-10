@@ -12,6 +12,8 @@ import (
 )
 
 const RANGE_LIMIT int = 100
+const ENV_FILE = "./envs/.env"
+const ZIPCODE_FILE string = "zip07_cbsa06.csv"
 
 type scoresQuery struct {
 	limit  int
@@ -109,30 +111,38 @@ type AddressMatch struct {
 }
 type AddressMatches []AddressMatch
 
-type ResultData struct {
+type GeoCodingResultDetail struct {
 	Input          Input          `json:"input"`
 	AddressMatches AddressMatches `json:"addressMatches"`
 }
 
 type GeoCodingResult struct {
-	Result ResultData `json:"result"`
+	Result GeoCodingResultDetail `json:"result"`
 }
 
 type AddressScoreResult struct {
-	Geoid           uint64  `json:"geoid"`
-	NWI             float64 `json:"nwi"`
-	SearchedAddress string  `json:"searchedAddress"`
+	Geoid                          uint64  `json:"geoid"`
+	NWI                            float64 `json:"nwi"`
+	RegionalTransitUsagePercentage float64 `json:"regionalTransitUsagePercentage"`
+	RegionalBikeRidership          uint64  `json:"regionalBikeRidership"`
+	SearchedAddress                string  `json:"searchedAddress"`
 }
 
 type ScoreResult struct {
-	ID        int     `json:"id"`
-	Geoid     uint64  `json:"geoid"`
-	CSA_name  string  `json:"csa_name"`
-	CBSA_name string  `json:"cbsa_name"`
-	NWI       float64 `json:"nwi"`
+	ID                             int     `json:"id"`
+	Geoid                          uint64  `json:"geoid"`
+	CSA_name                       string  `json:"csa_name"`
+	CBSA_name                      string  `json:"cbsa_name"`
+	NWI                            float64 `json:"nwi"`
+	RegionalTransitUsagePercentage float64 `json:"regionalTransitUsagePercentage"`
+	RegionalBikeRidership          uint64  `json:"regionalBikeRidership"`
 }
 
 type ScoreResults []ScoreResult
+
+type ZipcodeResult struct {
+	Zipcode string `json:"zipcode"`
+}
 
 func (h handler) GetScoreByAddress(ctx *gin.Context) {
 	address := strings.ReplaceAll(ctx.Query("address"), " ", "%20")
@@ -141,23 +151,18 @@ func (h handler) GetScoreByAddress(ctx *gin.Context) {
 	if address != "" {
 		go func() {
 			url := "https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress?address=" + address + "&benchmark=2020&vintage=Census2010_Census2020&format=json"
-			fmt.Println("URL: ", url)
 			client := &http.Client{}
-
 			req, err := http.NewRequest("GET", url, nil)
 			if err != nil {
 				ctx.AbortWithStatus(http.StatusNotFound)
 				return
 			}
-
 			req.Header.Set("User-Agent", "Golang_Spider_Bot/3.0")
-
 			resp, err := client.Do(req)
 			if err != nil {
 				ctx.AbortWithError(http.StatusBadRequest, err)
 				return
 			}
-
 			defer resp.Body.Close()
 			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
@@ -165,7 +170,8 @@ func (h handler) GetScoreByAddress(ctx *gin.Context) {
 				return
 			}
 			if err := json.Unmarshal(body, &results); err != nil { // Parse []byte to go struct pointer
-				fmt.Println("Can not unmarshal JSON")
+				ctx.AbortWithError(http.StatusBadRequest, err)
+				return
 			}
 			if len(results.Result.AddressMatches) > 0 {
 				geoids := results.Result.AddressMatches[0].Geographies.CensusBlocks[0].Geoid
@@ -176,26 +182,35 @@ func (h handler) GetScoreByAddress(ctx *gin.Context) {
 		}()
 	}
 	var score Rank
+	var cbsa CBSA
 	geoid10, err := strconv.ParseUint(<-geoid, 10, 64)
 	if err != nil {
 		ctx.AbortWithError(http.StatusNotFound, err)
 		return
 	}
-	fmt.Println(geoid10)
 	if result := h.DB.Where(&Rank{Geoid: geoid10}).First(&score); result.Error != nil {
 		ctx.AbortWithError(http.StatusNotFound, result.Error)
 		return
 	}
+	if result := h.DB.Where(&CBSA{Geoid: geoid10}).First(&cbsa); result.Error != nil {
+		ctx.AbortWithError(http.StatusNotFound, result.Error)
+		return
+	}
 	result := AddressScoreResult{
-		Geoid:           geoid10,
-		NWI:             score.NWI,
-		SearchedAddress: ctx.Query("address"),
+		Geoid:                          geoid10,
+		NWI:                            score.NWI,
+		SearchedAddress:                ctx.Query("address"),
+		RegionalTransitUsagePercentage: cbsa.PublicTansitUsage,
+		RegionalBikeRidership:          cbsa.BikeRidership,
 	}
 	ctx.JSON(http.StatusOK, &result)
 }
 
 func (h handler) GetScores(ctx *gin.Context) {
 	var scores []Rank
+	var zipScores []Rank
+	var res []Zipcode
+	zipcode := ctx.Query("zipcode")
 	limit, limit_err := strconv.Atoi(ctx.Query("limit"))
 	if limit_err != nil {
 		limit = 50
@@ -208,9 +223,27 @@ func (h handler) GetScores(ctx *gin.Context) {
 		limit:  limit,
 		offset: offset,
 	}
-	if result := h.DB.Limit(query.limit).Offset(query.offset).Find(&scores); result.Error != nil {
-		ctx.AbortWithError(http.StatusNotFound, result.Error)
-		return
+	if zipcode == "" {
+		if result := h.DB.Limit(query.limit).Offset(query.offset).Find(&scores); result.Error != nil {
+			ctx.AbortWithError(http.StatusNotFound, result.Error)
+			return
+		}
+	} else {
+		offset := ctx.Query("offset")
+		if offset != "" {
+			ctx.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+		if result := h.DB.Where("zipcode=?", zipcode).Find(&res); result.Error != nil {
+			ctx.AbortWithError(http.StatusNotFound, result.Error)
+			return
+		}
+		for _, item := range res {
+			if result := h.DB.Where("cbsa=?", item.CBSA).Model(&Rank{}).Select("*").Joins("left join cbsas on cbsas.geoid = ranks.geoid").Limit(query.limit).Scan(&zipScores); result.Error != nil {
+				fmt.Println(result.Error)
+			}
+			scores = append(scores, zipScores...)
+		}
 	}
 	results := ScoreResults{}
 	for i := range scores {
@@ -225,14 +258,15 @@ func (h handler) GetScores(ctx *gin.Context) {
 		results = append(
 			results,
 			ScoreResult{
-				ID:        i + offset,
-				Geoid:     scores[i].Geoid,
-				CSA_name:  csa.CSA_name,
-				CBSA_name: cbsa.CBSA_name,
-				NWI:       scores[i].NWI,
+				ID:                             i + offset,
+				Geoid:                          scores[i].Geoid,
+				CSA_name:                       csa.CSA_name,
+				CBSA_name:                      cbsa.CBSA_name,
+				NWI:                            scores[i].NWI,
+				RegionalTransitUsagePercentage: cbsa.PublicTansitUsage,
+				RegionalBikeRidership:          cbsa.BikeRidership,
 			},
 		)
 	}
-
 	ctx.JSON(http.StatusOK, &results)
 }

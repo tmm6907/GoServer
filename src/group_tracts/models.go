@@ -38,9 +38,11 @@ type CSA struct {
 
 type CBSA struct {
 	gorm.Model
-	Geoid     uint64
-	CBSA      uint32
-	CBSA_name string
+	Geoid             uint64
+	CBSA              uint32
+	CBSA_name         string
+	PublicTansitUsage float64 `gorm:"default:NULL"`
+	BikeRidership     uint64  `gorm:"default:NULL"`
 }
 
 type AC struct {
@@ -81,4 +83,8 @@ type Shape struct {
 	Shape_length float64
 	Shape_area   float64
 	Geometry     string
+}
+type Zipcode struct {
+	Zipcode string
+	CBSA    uint32 `gorm:"ForeignKey:CBSA"`
 }
