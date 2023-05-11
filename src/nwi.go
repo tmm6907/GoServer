@@ -255,10 +255,11 @@ func main() {
 			log.Fatalln(err)
 		}
 		go createZipToCBSA(db, zip_file, &wg)
-		wg.Wait()
+
 		ctx.JSON(200, gin.H{
 			"body": "Hello World!",
 		})
+		wg.Wait()
 	})
 	router.Run(port)
 }
