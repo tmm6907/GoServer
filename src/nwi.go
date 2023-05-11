@@ -225,6 +225,12 @@ func main() {
 			ctx.AbortWithError(http.StatusNotFound, err)
 			applog.Debugf(a_ctx, "Error, file %s could not be read", file)
 		}
+		attrs, err := b.Bucket.Attrs(a_ctx)
+		if err != nil {
+			ctx.AbortWithError(http.StatusNotFound, err)
+		}
+		fmt.Printf("bucket %s, created at %s, is located in %s with storage class %s\n",
+			attrs.Name, attrs.Created, attrs.Location, attrs.StorageClass)
 		go repopulateGroupTracts(db, file, &wg)
 		// transit_file, err := b.readFile(cbsa_transit_file)
 		// if err != nil {
