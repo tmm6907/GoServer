@@ -220,7 +220,7 @@ func main() {
 			return
 		}
 		defer client.Close()
-		fmt.Printf("Demo GCS Application running from Version: %v\n", appengine.VersionID(a_ctx))
+		applog.Infof(a_ctx, "Open NWI GCS Application running from Version: %v\n", appengine.VersionID(a_ctx))
 		buf := &bytes.Buffer{}
 		b := &Bucket{
 			W:          buf,
@@ -237,22 +237,22 @@ func main() {
 		zipcode_file = "gs://open-nwi/zip07_cbsa06.csv"
 		file, err := b.readFile(db_file)
 		if err != nil {
-			log.Fatalln(err)
+			applog.Errorf(a_ctx, "Error, file %s could not be read", file)
 		}
 		go repopulateGroupTracts(db, file, &wg)
 		transit_file, err := b.readFile(cbsa_transit_file)
 		if err != nil {
-			log.Fatalln(err)
+			applog.Errorf(a_ctx, "Error, file %s could not be read", transit_file)
 		}
 		go addTransitUsage(db, transit_file, &wg)
 		bike_file, err := b.readFile(cbsa_bike_file)
 		if err != nil {
-			log.Fatalln(err)
+			applog.Errorf(a_ctx, "Error, file %s could not be read", bike_file)
 		}
 		go addBikeRidership(db, bike_file, &wg)
 		zip_file, err := b.readFile(cbsa_bike_file)
 		if err != nil {
-			log.Fatalln(err)
+			applog.Errorf(a_ctx, "Error, file %s could not be read", zip_file)
 		}
 		go createZipToCBSA(db, zip_file, &wg)
 
