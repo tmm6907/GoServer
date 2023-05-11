@@ -212,11 +212,11 @@ func main() {
 		a_ctx := appengine.NewContext(ctx.Request)
 		bucket, err := file.DefaultBucketName(ctx)
 		if err != nil {
-			applog.Errorf(ctx, "failed to get default GCS bucket name: %v", err)
+			applog.Debugf(ctx, "failed to get default GCS bucket name: %v", err)
 		}
 		client, err := storage.NewClient(a_ctx)
 		if err != nil {
-			applog.Errorf(ctx, "failed to create client: %v", err)
+			applog.Debugf(ctx, "failed to create client: %v", err)
 			return
 		}
 		defer client.Close()
@@ -237,22 +237,22 @@ func main() {
 		zipcode_file = "gs://open-nwi/zip07_cbsa06.csv"
 		file, err := b.readFile(db_file)
 		if err != nil {
-			applog.Errorf(a_ctx, "Error, file %s could not be read", file)
+			applog.Debugf(a_ctx, "Error, file %s could not be read", file)
 		}
 		go repopulateGroupTracts(db, file, &wg)
 		transit_file, err := b.readFile(cbsa_transit_file)
 		if err != nil {
-			applog.Errorf(a_ctx, "Error, file %s could not be read", transit_file)
+			applog.Debugf(a_ctx, "Error, file %s could not be read", transit_file)
 		}
 		go addTransitUsage(db, transit_file, &wg)
 		bike_file, err := b.readFile(cbsa_bike_file)
 		if err != nil {
-			applog.Errorf(a_ctx, "Error, file %s could not be read", bike_file)
+			applog.Debugf(a_ctx, "Error, file %s could not be read", bike_file)
 		}
 		go addBikeRidership(db, bike_file, &wg)
 		zip_file, err := b.readFile(cbsa_bike_file)
 		if err != nil {
-			applog.Errorf(a_ctx, "Error, file %s could not be read", zip_file)
+			applog.Debugf(a_ctx, "Error, file %s could not be read", zip_file)
 		}
 		go createZipToCBSA(db, zip_file, &wg)
 		ctx.JSON(200, gin.H{
