@@ -221,7 +221,7 @@ func main() {
 			attrs.Name, attrs.Created, attrs.Location, attrs.StorageClass)
 		var wg sync.WaitGroup
 		wg.Add(1)
-		db_file = "gs://open-nwi/Natl_WI.csv"
+		db_file = "Natl_WI.csv"
 		cbsa_transit_file = "CBSA_Public_Transit_Usage.csv"
 		cbsa_bike_file = "CBSA_Bicylce_Ridership.csv"
 		zipcode_file = "zip07_cbsa06.csv"
