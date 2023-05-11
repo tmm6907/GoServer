@@ -16,6 +16,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"golang.org/x/net/context"
 	"google.golang.org/appengine"
+	"google.golang.org/appengine/file"
 	applog "google.golang.org/appengine/log"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -194,10 +195,10 @@ func main() {
 	group_tracts.RegisterRoutes(router, db)
 	router.GET("/", func(ctx *gin.Context) {
 		a_ctx := appengine.NewContext(ctx.Request)
-		// bucket, err := file.DefaultBucketName(ctx)
-		// if err != nil {
-		// 	applog.Debugf(ctx, "failed to get default GCS bucket name: %v", err)
-		// }
+		bucket, err := file.DefaultBucketName(ctx)
+		if err != nil {
+			applog.Debugf(ctx, "failed to get default GCS bucket name: %v", err)
+		}
 		client, err := storage.NewClient(a_ctx)
 		if err != nil {
 			applog.Debugf(ctx, "failed to create client: %v", err)
@@ -210,12 +211,12 @@ func main() {
 			W:          buf,
 			Ctx:        ctx,
 			Client:     client,
-			Bucket:     client.Bucket("nwi"),
-			BucketName: "nwi",
+			Bucket:     client.Bucket(bucket),
+			BucketName: bucket,
 		}
 		var wg sync.WaitGroup
 		wg.Add(1)
-		db_file = "Natl_WI.csv"
+		db_file = "gs://open-nwi/Natl_WI.csv"
 		cbsa_transit_file = "CBSA_Public_Transit_Usage.csv"
 		cbsa_bike_file = "CBSA_Bicylce_Ridership.csv"
 		zipcode_file = "zip07_cbsa06.csv"
