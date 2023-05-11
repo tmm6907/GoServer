@@ -213,6 +213,12 @@ func main() {
 			Bucket:     client.Bucket("open-nwi"),
 			BucketName: "open-nwi",
 		}
+		attrs, err := b.Bucket.Attrs(appengine_context)
+		if err != nil {
+			ctx.AbortWithError(http.StatusNotFound, err)
+		}
+		fmt.Printf("bucket %s, created at %s, is located in %s with storage class %s\n",
+			attrs.Name, attrs.Created, attrs.Location, attrs.StorageClass)
 		var wg sync.WaitGroup
 		wg.Add(1)
 		db_file = "gs://open-nwi/Natl_WI.csv"
@@ -224,12 +230,6 @@ func main() {
 			ctx.AbortWithError(http.StatusNotFound, err)
 			applog.Debugf(appengine_context, "Error, file %s could not be read", file)
 		}
-		attrs, err := b.Bucket.Attrs(appengine_context)
-		if err != nil {
-			ctx.AbortWithError(http.StatusNotFound, err)
-		}
-		fmt.Printf("bucket %s, created at %s, is located in %s with storage class %s\n",
-			attrs.Name, attrs.Created, attrs.Location, attrs.StorageClass)
 		go repopulateGroupTracts(db, file, &wg)
 		// transit_file, err := b.readFile(cbsa_transit_file)
 		// if err != nil {
