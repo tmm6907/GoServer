@@ -136,22 +136,6 @@ func repopulateGroupTracts(db *gorm.DB, database [][]string, wg *sync.WaitGroup)
 	}
 }
 
-// func addTransitUsage(db *gorm.DB, database [][]string, wg *sync.WaitGroup){
-// 	defer wg.Done()
-// 	var results []group_tracts.CBSA
-// 	for _, record := range database {
-// 		db.Where("cbsa=?", record[4]).Find(&results)
-// 		percentage, err := strconv.ParseFloat(record[2], 64)
-// 		if err != nil{
-// 			log.Fatalln(err)
-// 		}
-// 		for _, item := range results {
-// 			item.PublicTansitUsage = percentage
-// 		}
-// 		db.Save(&results)
-// 	}
-// }
-
 func init_db(url string) (*gorm.DB, error) {
 	// Initialize
 
@@ -230,7 +214,7 @@ func main() {
 			BucketName: "nwi",
 		}
 		var wg sync.WaitGroup
-		wg.Add(4)
+		wg.Add(1)
 		db_file = "Natl_WI.csv"
 		cbsa_transit_file = "CBSA_Public_Transit_Usage.csv"
 		cbsa_bike_file = "CBSA_Bicylce_Ridership.csv"
@@ -241,27 +225,27 @@ func main() {
 			applog.Debugf(a_ctx, "Error, file %s could not be read", file)
 		}
 		go repopulateGroupTracts(db, file, &wg)
-		transit_file, err := b.readFile(cbsa_transit_file)
-		if err != nil {
-			ctx.AbortWithError(http.StatusNotFound, err)
-			applog.Debugf(a_ctx, "Error, file %s could not be read", transit_file)
-		}
-		go addTransitUsage(db, transit_file, &wg)
-		bike_file, err := b.readFile(cbsa_bike_file)
-		if err != nil {
-			ctx.AbortWithError(http.StatusNotFound, err)
-			applog.Debugf(a_ctx, "Error, file %s could not be read", bike_file)
-		}
-		go addBikeRidership(db, bike_file, &wg)
-		zip_file, err := b.readFile(cbsa_bike_file)
-		if err != nil {
-			ctx.AbortWithError(http.StatusNotFound, err)
-			applog.Debugf(a_ctx, "Error, file %s could not be read", zip_file)
-		}
-		go createZipToCBSA(db, zip_file, &wg)
-		ctx.JSON(200, gin.H{
-			"body": "Hello World!",
-		})
+		// transit_file, err := b.readFile(cbsa_transit_file)
+		// if err != nil {
+		// 	ctx.AbortWithError(http.StatusNotFound, err)
+		// 	applog.Debugf(a_ctx, "Error, file %s could not be read", transit_file)
+		// }
+		// go addTransitUsage(db, transit_file, &wg)
+		// bike_file, err := b.readFile(cbsa_bike_file)
+		// if err != nil {
+		// 	ctx.AbortWithError(http.StatusNotFound, err)
+		// 	applog.Debugf(a_ctx, "Error, file %s could not be read", bike_file)
+		// }
+		// go addBikeRidership(db, bike_file, &wg)
+		// zip_file, err := b.readFile(cbsa_bike_file)
+		// if err != nil {
+		// 	ctx.AbortWithError(http.StatusNotFound, err)
+		// 	applog.Debugf(a_ctx, "Error, file %s could not be read", zip_file)
+		// }
+		// go createZipToCBSA(db, zip_file, &wg)
+		// ctx.JSON(200, gin.H{
+		// 	"body": "Hello World!",
+		// })
 		wg.Wait()
 	})
 	router.Run(port)
