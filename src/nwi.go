@@ -226,15 +226,15 @@ func main() {
 			W:          buf,
 			Ctx:        ctx,
 			Client:     client,
-			Bucket:     client.Bucket(bucket),
+			Bucket:     client.Bucket("open-nwi"),
 			BucketName: bucket,
 		}
 		var wg sync.WaitGroup
 		wg.Add(4)
-		db_file = "https://storage.cloud.google.com/open-nwi/Natl_WI.csv"
-		cbsa_transit_file = "https://storage.cloud.google.com/open-nwi/CBSA_Public_Transit_Usage.csv"
-		cbsa_bike_file = "https://storage.cloud.google.com/open-nwi/CBSA_Bicylce_Ridership.csv"
-		zipcode_file = "https://storage.cloud.google.com/open-nwi/zip07_cbsa06.csv"
+		db_file = "Natl_WI.csv"
+		cbsa_transit_file = "CBSA_Public_Transit_Usage.csv"
+		cbsa_bike_file = "CBSA_Bicylce_Ridership.csv"
+		zipcode_file = "zip07_cbsa06.csv"
 		file, err := b.readFile(db_file)
 		if err != nil {
 			log.Fatalln(err)
