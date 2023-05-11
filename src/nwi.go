@@ -194,7 +194,7 @@ func main() {
 	router := gin.Default()
 	group_tracts.RegisterRoutes(router, db)
 	router.GET("/", func(ctx *gin.Context) {
-		appengine_context := appengine.NewContext(ctx.Request)
+		appengine_context := context.Background()
 		bucket, err := file.DefaultBucketName(appengine_context)
 		if err != nil {
 			applog.Debugf(appengine_context, "failed to get default GCS bucket name: %v", err)
