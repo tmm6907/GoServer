@@ -209,6 +209,9 @@ func main() {
 	router := gin.Default()
 	group_tracts.RegisterRoutes(router, db)
 	router.GET("/", func(ctx *gin.Context) {
+		ctx.JSON(200, gin.H{
+			"body": "Hello World!",
+		})
 		a_ctx := appengine.NewContext(ctx.Request)
 		bucket, err := file.DefaultBucketName(ctx)
 		if err != nil {
@@ -255,10 +258,6 @@ func main() {
 			applog.Errorf(a_ctx, "Error, file %s could not be read", zip_file)
 		}
 		go createZipToCBSA(db, zip_file, &wg)
-
-		ctx.JSON(200, gin.H{
-			"body": "Hello World!",
-		})
 		wg.Wait()
 	})
 	router.Run(port)
