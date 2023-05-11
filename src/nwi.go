@@ -185,14 +185,14 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	var wg sync.WaitGroup
-	wg.Add(2)
-	db_file, err := group_tracts.ReadData(DB_FILE)
-	if err != nil {
-		log.Fatalln(err)
-		log.Fatalf("Error, file %s could not be read", db_file)
-	}
-	go repopulateGroupTracts(db, db_file, &wg)
+	// var wg sync.WaitGroup
+	// wg.Add(2)
+	// db_file, err := group_tracts.ReadData(DB_FILE)
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// 	log.Fatalf("Error, file %s could not be read", db_file)
+	// }
+	// go repopulateGroupTracts(db, db_file, &wg)
 	// transit_file, err := group_tracts.ReadData(CBSA_TRANSIT_FILE)
 	// if err != nil {
 	// 	log.Fatalln(err)
@@ -205,12 +205,12 @@ func main() {
 	// 	log.Fatalf("Error, file %s could not be read", bike_file)
 	// }
 	// go addBikeRidership(db, bike_file, &wg)
-	zip_file, err := group_tracts.ReadData(ZIPCODE_FILE)
-	if err != nil {
-		log.Fatalln(err)
-		log.Fatalf("Error, file %s could not be read", zip_file)
-	}
-	go createZipToCBSA(db, zip_file, &wg)
+	// zip_file, err := group_tracts.ReadData(ZIPCODE_FILE)
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// 	log.Fatalf("Error, file %s could not be read", zip_file)
+	// }
+	// go createZipToCBSA(db, zip_file, &wg)
 
 	router := gin.Default()
 	group_tracts.RegisterRoutes(router, db)
@@ -245,7 +245,7 @@ func main() {
 		ctx.JSON(200, gin.H{
 			"body": "Hello World!",
 		})
-		wg.Wait()
+		// wg.Wait()
 	})
 	router.Run(port)
 }
