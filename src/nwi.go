@@ -194,22 +194,22 @@ func main() {
 	router := gin.Default()
 	group_tracts.RegisterRoutes(router, db)
 	router.GET("/", func(ctx *gin.Context) {
-		a_ctx := appengine.NewContext(ctx.Request)
+		appengine_context := appengine.NewContext(ctx.Request)
 		bucket, err := file.DefaultBucketName(ctx)
 		if err != nil {
 			applog.Debugf(ctx, "failed to get default GCS bucket name: %v", err)
 		}
-		client, err := storage.NewClient(a_ctx)
+		client, err := storage.NewClient(appengine_context)
 		if err != nil {
-			applog.Debugf(ctx, "failed to create client: %v", err)
+			applog.Debugf(appengine_context, "failed to create client: %v", err)
 			return
 		}
 		defer client.Close()
-		applog.Infof(a_ctx, "Open NWI GCS Application running from Version: %v\n", appengine.VersionID(a_ctx))
+		applog.Infof(appengine_context, "Open NWI GCS Application running from Version: %v\n", appengine.VersionID(appengine_context))
 		buf := &bytes.Buffer{}
 		b := &Bucket{
 			W:          buf,
-			Ctx:        ctx,
+			Ctx:        appengine_context,
 			Client:     client,
 			Bucket:     client.Bucket(bucket),
 			BucketName: bucket,
@@ -223,9 +223,9 @@ func main() {
 		file, err := b.readFile(db_file)
 		if err != nil {
 			ctx.AbortWithError(http.StatusNotFound, err)
-			applog.Debugf(a_ctx, "Error, file %s could not be read", file)
+			applog.Debugf(appengine_context, "Error, file %s could not be read", file)
 		}
-		attrs, err := b.Bucket.Attrs(a_ctx)
+		attrs, err := b.Bucket.Attrs(appengine_context)
 		if err != nil {
 			ctx.AbortWithError(http.StatusNotFound, err)
 		}
