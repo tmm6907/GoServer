@@ -2,7 +2,6 @@ package group_tracts
 
 import (
 	"encoding/csv"
-	"log"
 	"os"
 	"strconv"
 )
@@ -195,12 +194,8 @@ func CreateTractGroups(database [][]string) []GroupTract {
 	return census_tract_groups
 }
 
-func MatchZipToCBSA(file string) []Zipcode {
+func MatchZipToCBSA(records [][]string) []Zipcode {
 	var zipcodes []Zipcode
-	records, err := ReadData(file)
-	if err != nil {
-		log.Fatalln(err)
-	}
 	for _, record := range records {
 		cbsa, err := strconv.ParseUint(record[7], 10, 32)
 		if err != nil {

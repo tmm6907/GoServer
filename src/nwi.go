@@ -1,24 +1,44 @@
 package main
 
 import (
+	"bytes"
+	"encoding/csv"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strconv"
 	"sync"
 
+	"cloud.google.com/go/storage"
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
+	"golang.org/x/net/context"
+	"google.golang.org/appengine"
+	"google.golang.org/appengine/file"
+	applog "google.golang.org/appengine/log"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	group_tracts "nwi.io/nwi/group_tracts"
 )
 
-const DB_FILE = "https://storage.cloud.google.com/open-nwi/Natl_WI.csv"
-const CBSA_TRANSIT_FILE = "https://storage.cloud.google.com/open-nwi/CBSA_Public_Transit_Usage.csv"
-const CBSA_BIKE_FILE = "https://storage.cloud.google.com/open-nwi/CBSA_Bicylce_Ridership.csv"
-const ZIPCODE_FILE string = "https://storage.cloud.google.com/open-nwi/zip07_cbsa06.csv"
+var db_file string
+var cbsa_transit_file string
+var cbsa_bike_file string
+var zipcode_file string
+
 const RANGE = 500
+
+type Bucket struct {
+	Client     *storage.Client
+	BucketName string
+	Bucket     *storage.BucketHandle
+
+	W       io.Writer
+	Ctx     context.Context
+	CleanUp []string
+	Failed  bool
+}
 
 func crete_entry(db *gorm.DB, data []group_tracts.GroupTract, i int, create_range int) *gorm.DB {
 	result := db.Create(data[i:create_range])
@@ -36,14 +56,11 @@ func crete_zipcode_entry(db *gorm.DB, data []group_tracts.Zipcode, i int, create
 	return result
 }
 
-func addTransitUsage(db *gorm.DB, wg *sync.WaitGroup) {
+func addTransitUsage(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	var cbsas []group_tracts.CBSA
-	transit_data, transit_err := group_tracts.ReadData(CBSA_TRANSIT_FILE)
-	if transit_err != nil {
-		log.Fatalln(transit_err)
-	}
-	for _, record := range transit_data {
+
+	for _, record := range database {
 		result := db.Where("cbsa=?", record[4]).Find(&cbsas)
 		if result.Error != nil {
 			log.Fatalln(result.Error)
@@ -60,14 +77,10 @@ func addTransitUsage(db *gorm.DB, wg *sync.WaitGroup) {
 
 }
 
-func addBikeRidership(db *gorm.DB, wg *sync.WaitGroup) {
+func addBikeRidership(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	var cbsas []group_tracts.CBSA
-	bike_data, transit_err := group_tracts.ReadData(CBSA_BIKE_FILE)
-	if transit_err != nil {
-		log.Fatalln(transit_err)
-	}
-	for _, record := range bike_data {
+	for _, record := range database {
 		result := db.Where("cbsa=?", record[3]).Find(&cbsas)
 		if result.Error != nil {
 			log.Fatalln(result.Error)
@@ -83,9 +96,9 @@ func addBikeRidership(db *gorm.DB, wg *sync.WaitGroup) {
 	}
 
 }
-func createZipToCBSA(db *gorm.DB, wg *sync.WaitGroup) {
+func createZipToCBSA(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 	defer wg.Done()
-	zipcodes := group_tracts.MatchZipToCBSA(ZIPCODE_FILE)
+	zipcodes := group_tracts.MatchZipToCBSA(database)
 	data_len := len(zipcodes)
 	for i := 0; i < data_len; i += RANGE {
 		if i+RANGE < data_len {
@@ -97,12 +110,8 @@ func createZipToCBSA(db *gorm.DB, wg *sync.WaitGroup) {
 	}
 }
 
-func repopulateGroupTracts(db *gorm.DB, wg *sync.WaitGroup) {
+func repopulateGroupTracts(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 	defer wg.Done()
-	database, db_err := group_tracts.ReadData(DB_FILE)
-	if db_err != nil {
-		log.Fatalln(db_err)
-	}
 	db_data := make(chan []group_tracts.GroupTract)
 	go func() {
 		res := group_tracts.CreateTractGroups(database)
@@ -126,6 +135,22 @@ func repopulateGroupTracts(db *gorm.DB, wg *sync.WaitGroup) {
 		}
 	}
 }
+
+// func addTransitUsage(db *gorm.DB, database [][]string, wg *sync.WaitGroup){
+// 	defer wg.Done()
+// 	var results []group_tracts.CBSA
+// 	for _, record := range database {
+// 		db.Where("cbsa=?", record[4]).Find(&results)
+// 		percentage, err := strconv.ParseFloat(record[2], 64)
+// 		if err != nil{
+// 			log.Fatalln(err)
+// 		}
+// 		for _, item := range results {
+// 			item.PublicTansitUsage = percentage
+// 		}
+// 		db.Save(&results)
+// 	}
+// }
 
 func init_db(url string) (*gorm.DB, error) {
 	// Initialize
@@ -180,19 +205,85 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	var wg sync.WaitGroup
-	wg.Add(3)
-	go repopulateGroupTracts(db, &wg)
-	// go addCBSA_Usage(db, &wg)
-	go addBikeRidership(db, &wg)
-	go createZipToCBSA(db, &wg)
+
 	router := gin.Default()
 	group_tracts.RegisterRoutes(router, db)
 	router.GET("/", func(ctx *gin.Context) {
+		a_ctx := appengine.NewContext(ctx.Request)
+		bucket, err := file.DefaultBucketName(ctx)
+		if err != nil {
+			applog.Errorf(ctx, "failed to get default GCS bucket name: %v", err)
+		}
+		client, err := storage.NewClient(ctx)
+		if err != nil {
+			applog.Errorf(ctx, "failed to create client: %v", err)
+			return
+		}
+		defer client.Close()
+		fmt.Printf("Demo GCS Application running from Version: %v\n", appengine.VersionID(a_ctx))
+		buf := &bytes.Buffer{}
+		b := &Bucket{
+			W:          buf,
+			Ctx:        ctx,
+			Client:     client,
+			Bucket:     client.Bucket(bucket),
+			BucketName: bucket,
+		}
+		var wg sync.WaitGroup
+		wg.Add(4)
+		db_file = "https://storage.cloud.google.com/open-nwi/Natl_WI.csv"
+		cbsa_transit_file = "https://storage.cloud.google.com/open-nwi/CBSA_Public_Transit_Usage.csv"
+		cbsa_bike_file = "https://storage.cloud.google.com/open-nwi/CBSA_Bicylce_Ridership.csv"
+		zipcode_file = "https://storage.cloud.google.com/open-nwi/zip07_cbsa06.csv"
+		file, err := b.readFile(db_file)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		go repopulateGroupTracts(db, file, &wg)
+		transit_file, err := b.readFile(cbsa_transit_file)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		go addTransitUsage(db, transit_file, &wg)
+		bike_file, err := b.readFile(cbsa_bike_file)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		go addBikeRidership(db, bike_file, &wg)
+		zip_file, err := b.readFile(cbsa_bike_file)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		go createZipToCBSA(db, zip_file, &wg)
+		wg.Wait()
 		ctx.JSON(200, gin.H{
 			"body": "Hello World!",
 		})
 	})
 	router.Run(port)
-	wg.Wait()
+}
+func (b *Bucket) errorf(format string, args ...interface{}) {
+	b.Failed = true
+	fmt.Fprintln(b.W, fmt.Sprintf(format, args...))
+	applog.Errorf(b.Ctx, format, args...)
+}
+
+func (b *Bucket) readFile(fileName string) ([][]string, error) {
+	rc, err := b.Bucket.Object(fileName).NewReader(b.Ctx)
+	if err != nil {
+		b.errorf("readFile: unable to open file from bucket %q, file %q: %v", b.BucketName, fileName, err)
+	}
+	r := csv.NewReader(rc)
+	// skip first line
+	if _, err := r.Read(); err != nil {
+		return [][]string{}, err
+	}
+
+	records, err := r.ReadAll()
+
+	if err != nil {
+		return [][]string{}, err
+	}
+
+	return records, nil
 }
