@@ -231,10 +231,10 @@ func main() {
 		}
 		var wg sync.WaitGroup
 		wg.Add(4)
-		db_file = "nwi/Natl_WI.csv"
-		cbsa_transit_file = "nwi/CBSA_Public_Transit_Usage.csv"
-		cbsa_bike_file = "nwi/CBSA_Bicylce_Ridership.csv"
-		zipcode_file = "nwi/zip07_cbsa06.csv"
+		db_file = "Natl_WI.csv"
+		cbsa_transit_file = "CBSA_Public_Transit_Usage.csv"
+		cbsa_bike_file = "CBSA_Bicylce_Ridership.csv"
+		zipcode_file = "zip07_cbsa06.csv"
 		file, err := b.readFile(db_file)
 		if err != nil {
 			applog.Debugf(a_ctx, "Error, file %s could not be read", file)
