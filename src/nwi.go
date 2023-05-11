@@ -1,12 +1,9 @@
 package main
 
 import (
-	"bytes"
-	"encoding/csv"
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"strconv"
 	"sync"
@@ -15,17 +12,15 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"golang.org/x/net/context"
-	"google.golang.org/appengine"
-	applog "google.golang.org/appengine/log"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	group_tracts "nwi.io/nwi/group_tracts"
 )
 
-var db_file string
-var cbsa_transit_file string
-var cbsa_bike_file string
-var zipcode_file string
+const DB_FILE = "Natl_WI.csv"
+const CBSA_TRANSIT_FILE = "CBSA_Public_Transit_Usage.csv"
+const CBSA_BIKE_FILE = "CBSA_Bicylce_Ridership.csv"
+const ZIPCODE_FILE = "zip07_cbsa06.csv"
 
 const RANGE = 500
 
@@ -180,105 +175,103 @@ func main() {
 		log.Fatalf("Fatal Error in connect_unix.go: %s environment variable not set.", connectionName)
 	}
 	dbUrl := fmt.Sprintf(
-		"%s:%s@unix(%s)/%s?parseTime=true",
+		"%s:%s@tcp(%s)/%s",
 		dbUser,
 		dbPass,
-		"/cloudsql/"+connectionName,
+		"localhost",
 		dbName,
 	)
 	db, err := init_db(dbUrl)
 	if err != nil {
 		log.Fatalln(err)
 	}
+	var wg sync.WaitGroup
+	wg.Add(2)
+	db_file, err := group_tracts.ReadData(DB_FILE)
+	if err != nil {
+		log.Fatalln(err)
+		log.Fatalf("Error, file %s could not be read", db_file)
+	}
+	go repopulateGroupTracts(db, db_file, &wg)
+	// transit_file, err := group_tracts.ReadData(CBSA_TRANSIT_FILE)
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// 	log.Fatalf("Error, file %s could not be read", transit_file)
+	// }
+	// go addTransitUsage(db, transit_file, &wg)
+	// bike_file, err := group_tracts.ReadData(CBSA_BIKE_FILE)
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// 	log.Fatalf("Error, file %s could not be read", bike_file)
+	// }
+	// go addBikeRidership(db, bike_file, &wg)
+	zip_file, err := group_tracts.ReadData(ZIPCODE_FILE)
+	if err != nil {
+		log.Fatalln(err)
+		log.Fatalf("Error, file %s could not be read", zip_file)
+	}
+	go createZipToCBSA(db, zip_file, &wg)
 
 	router := gin.Default()
 	group_tracts.RegisterRoutes(router, db)
 	router.GET("/", func(ctx *gin.Context) {
-		appengine_context := context.Background()
-		// bucket, err := file.DefaultBucketName(appengine_context)
+		// appengine_context := appengine.NewContext(ctx.Request)
+		// // bucket, err := file.DefaultBucketName(appengine_context)
+		// // if err != nil {
+		// // 	applog.Debugf(appengine_context, "failed to get default GCS bucket name: %v", err)
+		// // }
+		// client, err := storage.NewClient(appengine_context)
 		// if err != nil {
-		// 	applog.Debugf(appengine_context, "failed to get default GCS bucket name: %v", err)
+		// 	applog.Debugf(appengine_context, "failed to create client: %v", err)
+		// 	return
 		// }
-		client, err := storage.NewClient(appengine_context)
-		if err != nil {
-			applog.Debugf(appengine_context, "failed to create client: %v", err)
-			return
-		}
-		defer client.Close()
-		applog.Infof(appengine_context, "Open NWI GCS Application running from Version: %v\n", appengine.VersionID(appengine_context))
-		buf := &bytes.Buffer{}
-		b := &Bucket{
-			W:          buf,
-			Ctx:        appengine_context,
-			Client:     client,
-			Bucket:     client.Bucket("open-nwi"),
-			BucketName: "open-nwi",
-		}
-		attrs, err := b.Bucket.Attrs(appengine_context)
-		if err != nil {
-			ctx.AbortWithError(http.StatusNotFound, err)
-		}
-		fmt.Printf("bucket %s, created at %s, is located in %s with storage class %s\n",
-			attrs.Name, attrs.Created, attrs.Location, attrs.StorageClass)
-		var wg sync.WaitGroup
-		wg.Add(1)
-		db_file = "Natl_WI.csv"
-		cbsa_transit_file = "CBSA_Public_Transit_Usage.csv"
-		cbsa_bike_file = "CBSA_Bicylce_Ridership.csv"
-		zipcode_file = "zip07_cbsa06.csv"
-		file, err := b.readFile(db_file)
-		if err != nil {
-			ctx.AbortWithError(http.StatusNotFound, err)
-			applog.Debugf(appengine_context, "Error, file %s could not be read", file)
-		}
-		go repopulateGroupTracts(db, file, &wg)
-		// transit_file, err := b.readFile(cbsa_transit_file)
+		// defer client.Close()
+		// applog.Infof(appengine_context, "Open NWI GCS Application running from Version: %v\n", appengine.VersionID(appengine_context))
+		// buf := &bytes.Buffer{}
+		// b := &Bucket{
+		// 	W:          buf,
+		// 	Ctx:        appengine_context,
+		// 	Client:     client,
+		// 	Bucket:     client.Bucket("open-nwi"),
+		// 	BucketName: "open-nwi",
+		// }
+		// attrs, err := b.Bucket.Attrs(appengine_context)
 		// if err != nil {
 		// 	ctx.AbortWithError(http.StatusNotFound, err)
-		// 	applog.Debugf(a_ctx, "Error, file %s could not be read", transit_file)
 		// }
-		// go addTransitUsage(db, transit_file, &wg)
-		// bike_file, err := b.readFile(cbsa_bike_file)
-		// if err != nil {
-		// 	ctx.AbortWithError(http.StatusNotFound, err)
-		// 	applog.Debugf(a_ctx, "Error, file %s could not be read", bike_file)
-		// }
-		// go addBikeRidership(db, bike_file, &wg)
-		// zip_file, err := b.readFile(cbsa_bike_file)
-		// if err != nil {
-		// 	ctx.AbortWithError(http.StatusNotFound, err)
-		// 	applog.Debugf(a_ctx, "Error, file %s could not be read", zip_file)
-		// }
-		// go createZipToCBSA(db, zip_file, &wg)
-		// ctx.JSON(200, gin.H{
-		// 	"body": "Hello World!",
-		// })
+		// fmt.Printf("bucket %s, created at %s, is located in %s with storage class %s\n",
+		// 	attrs.Name, attrs.Created, attrs.Location, attrs.StorageClass)
+
+		ctx.JSON(200, gin.H{
+			"body": "Hello World!",
+		})
 		wg.Wait()
 	})
 	router.Run(port)
 }
-func (b *Bucket) errorf(format string, args ...interface{}) {
-	b.Failed = true
-	fmt.Fprintln(b.W, fmt.Sprintf(format, args...))
-	applog.Errorf(b.Ctx, format, args...)
-}
 
-func (b *Bucket) readFile(fileName string) ([][]string, error) {
-	rc, err := b.Bucket.Object(fileName).NewReader(b.Ctx)
-	if err != nil {
-		b.errorf("readFile: unable to open file from bucket %q, file %q: %v", b.BucketName, fileName, err)
-	}
-	r := csv.NewReader(rc)
-	// skip first line
-	if _, err := r.Read(); err != nil {
-		return [][]string{}, err
-	}
+// func (b *Bucket) errorf(format string, args ...interface{}) {
+// 	b.Failed = true
+// 	fmt.Fprintln(b.W, fmt.Sprintf(format, args...))
+// 	applog.Errorf(b.Ctx, format, args...)
+// }
 
-	records, err := r.ReadAll()
+// func (b *Bucket) readFile(fileName string) ([][]string, error) {
+// 	rc, err := b.Bucket.Object(fileName).NewReader(b.Ctx)
+// 	if err != nil {
+// 		b.errorf("readFile: unable to open file from bucket %q, file %q: %v", b.BucketName, fileName, err)
+// 	}
+// 	r := csv.NewReader(rc)
+// 	// skip first line
+// 	if _, err := r.Read(); err != nil {
+// 		return [][]string{}, err
+// 	}
 
-	if err != nil {
-		return [][]string{}, err
-	}
+// 	records, err := r.ReadAll()
 
-	return records, nil
-}
+// 	if err != nil {
+// 		return [][]string{}, err
+// 	}
+
+// 	return records, nil
+// }
