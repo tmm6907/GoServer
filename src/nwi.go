@@ -16,7 +16,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"golang.org/x/net/context"
 	"google.golang.org/appengine"
-	"google.golang.org/appengine/file"
 	applog "google.golang.org/appengine/log"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -195,10 +194,10 @@ func main() {
 	group_tracts.RegisterRoutes(router, db)
 	router.GET("/", func(ctx *gin.Context) {
 		appengine_context := context.Background()
-		bucket, err := file.DefaultBucketName(appengine_context)
-		if err != nil {
-			applog.Debugf(appengine_context, "failed to get default GCS bucket name: %v", err)
-		}
+		// bucket, err := file.DefaultBucketName(appengine_context)
+		// if err != nil {
+		// 	applog.Debugf(appengine_context, "failed to get default GCS bucket name: %v", err)
+		// }
 		client, err := storage.NewClient(appengine_context)
 		if err != nil {
 			applog.Debugf(appengine_context, "failed to create client: %v", err)
@@ -211,8 +210,8 @@ func main() {
 			W:          buf,
 			Ctx:        appengine_context,
 			Client:     client,
-			Bucket:     client.Bucket(bucket),
-			BucketName: bucket,
+			Bucket:     client.Bucket("open-nwi"),
+			BucketName: "open-nwi",
 		}
 		var wg sync.WaitGroup
 		wg.Add(1)
