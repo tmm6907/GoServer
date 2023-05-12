@@ -41,8 +41,8 @@ type CBSA struct {
 	Geoid             uint64
 	CBSA              uint32
 	CBSA_name         string
-	PublicTansitUsage float64 `gorm:"default:NULL"`
-	BikeRidership     uint64  `gorm:"default:NULL"`
+	PublicTansitUsage float64 `gorm:"default:0"`
+	BikeRidership     uint64  `gorm:"default:0"`
 }
 
 type AC struct {

@@ -17,10 +17,10 @@ import (
 	group_tracts "nwi.io/nwi/group_tracts"
 )
 
-const DB_FILE = "Natl_WI.csv"
-const CBSA_TRANSIT_FILE = "CBSA_Public_Transit_Usage.csv"
-const CBSA_BIKE_FILE = "CBSA_Bicylce_Ridership.csv"
-const ZIPCODE_FILE = "zip07_cbsa06.csv"
+// const DB_FILE = "Natl_WI.csv"
+// const CBSA_TRANSIT_FILE = "CBSA_Public_Transit_Usage.csv"
+// const CBSA_BIKE_FILE = "CBSA_Bicylce_Ridership.csv"
+// const ZIPCODE_FILE = "zip07_cbsa06.csv"
 
 const RANGE = 500
 
@@ -66,8 +66,8 @@ func addTransitUsage(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 		}
 		for _, cbsa := range cbsas {
 			cbsa.PublicTansitUsage = usage
-			db.Save(&cbsa)
 		}
+		db.Save(&cbsas)
 	}
 
 }
@@ -86,8 +86,8 @@ func addBikeRidership(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 		}
 		for _, cbsa := range cbsas {
 			cbsa.BikeRidership = usage
-			db.Save(&cbsa)
 		}
+		db.Save(&cbsas)
 	}
 
 }
@@ -175,10 +175,10 @@ func main() {
 		log.Fatalf("Fatal Error in connect_unix.go: %s environment variable not set.", connectionName)
 	}
 	dbUrl := fmt.Sprintf(
-		"%s:%s@tcp(%s)/%s",
+		"%s:%s@unix(%s)/%s?parseTime=true",
 		dbUser,
 		dbPass,
-		"localhost",
+		"/cloudsql/"+connectionName,
 		dbName,
 	)
 	db, err := init_db(dbUrl)
