@@ -196,14 +196,18 @@ func CreateTractGroups(database [][]string) []GroupTract {
 
 func MatchZipToCBSA(records [][]string) []Zipcode {
 	var zipcodes []Zipcode
+	seen := make(map[string]uint32)
 	for _, record := range records {
 		cbsa, err := strconv.ParseUint(record[7], 10, 32)
 		if err != nil {
 			cbsa = 0
 		}
+		seen[record[0]] = uint32(cbsa)
+	}
+	for key, val := range seen {
 		zipcodes = append(zipcodes, Zipcode{
-			Zipcode: record[0],
-			CBSA:    uint32(cbsa),
+			Zipcode: key,
+			CBSA:    val,
 		})
 	}
 	return zipcodes

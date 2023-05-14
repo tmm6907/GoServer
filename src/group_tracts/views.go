@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -155,6 +156,7 @@ func (h handler) GetScoreByAddress(ctx *gin.Context) {
 				ctx.AbortWithStatus(http.StatusNotFound)
 				return
 			}
+			log.Println("Request = ", req)
 			req.Header.Set("User-Agent", "Golang_Spider_Bot/3.0")
 			resp, err := client.Do(req)
 			if err != nil {
@@ -182,6 +184,7 @@ func (h handler) GetScoreByAddress(ctx *gin.Context) {
 	var score Rank
 	var cbsa CBSA
 	geoid10, err := strconv.ParseUint(<-geoid, 10, 64)
+	log.Println(geoid10)
 	if err != nil {
 		ctx.AbortWithError(http.StatusNotFound, err)
 		return
@@ -232,7 +235,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 			return
 		}
 		for _, item := range res {
-			if result := h.DB.Where("cbsa=?", item.CBSA).Model(&Rank{}).Select("*").Joins("left join cbsas on cbsas.geoid = ranks.geoid").Limit(query.limit).Scan(&zipScores); result.Error != nil {
+			if result := h.DB.Where(&CBSA{CBSA: item.CBSA}).Model(&Rank{}).Select("*").Joins("left join cbsas on cbsas.geoid = ranks.geoid").Limit(query.limit).Scan(&zipScores); result.Error != nil {
 				fmt.Println(result.Error)
 			}
 			scores = append(scores, zipScores...)
@@ -242,10 +245,10 @@ func (h handler) GetScores(ctx *gin.Context) {
 	for i := range scores {
 		var csa CSA
 		var cbsa CBSA
-		if csa_result := h.DB.Where("geoid=?", scores[i].Geoid).First(&csa); csa_result.Error != nil {
+		if csa_result := h.DB.Where(&CBSA{Geoid: scores[i].Geoid}).First(&csa); csa_result.Error != nil {
 			csa.CSA_name = ""
 		}
-		if cbsa_result := h.DB.Where("geoid=?", scores[i].Geoid).First(&cbsa); cbsa_result.Error != nil {
+		if cbsa_result := h.DB.Where(&CBSA{Geoid: scores[i].Geoid}).First(&cbsa); cbsa_result.Error != nil {
 			cbsa.CBSA_name = ""
 		}
 		results = append(

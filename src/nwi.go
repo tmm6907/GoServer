@@ -35,18 +35,18 @@ type Bucket struct {
 	Failed  bool
 }
 
-func crete_entry(db *gorm.DB, data []group_tracts.GroupTract, i int, create_range int) *gorm.DB {
-	result := db.Create(data[i:create_range])
+func crete_entry(db *gorm.DB, data []group_tracts.GroupTract) *gorm.DB {
+	result := db.CreateInBatches(data, 50)
 	if result.Error != nil {
 		log.Fatalln(result.Error)
 	}
 	return result
 }
 
-func crete_zipcode_entry(db *gorm.DB, data []group_tracts.Zipcode, i int, create_range int) *gorm.DB {
-	result := db.Create(data[i:create_range])
+func crete_zipcode_entry(db *gorm.DB, data []group_tracts.Zipcode) *gorm.DB {
+	result := db.CreateInBatches(data, 50)
 	if result.Error != nil {
-		log.Fatalln(result.Error)
+		log.Println(result.Error)
 	}
 	return result
 }
@@ -106,14 +106,9 @@ func addBikeRidership(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 func createZipToCBSA(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	zipcodes := group_tracts.MatchZipToCBSA(database)
-	data_len := len(zipcodes)
-	for i := 0; i < data_len; i += RANGE {
-		if i+RANGE < data_len {
-			result := crete_zipcode_entry(db, zipcodes, i, i+RANGE)
-			if result.Error != nil {
-				log.Fatal(result.Error)
-			}
-		}
+	result := crete_zipcode_entry(db, zipcodes)
+	if result.Error != nil {
+		log.Println(result.Error)
 	}
 }
 
@@ -125,21 +120,9 @@ func repopulateGroupTracts(db *gorm.DB, database [][]string, wg *sync.WaitGroup)
 		db_data <- res
 	}()
 	res := <-db_data
-	data_len := len(res)
-	for i := 0; i < data_len; i += RANGE {
-		if i+RANGE < data_len {
-			result := crete_entry(db, res, i, i+RANGE)
-			if result.Error != nil {
-				log.Fatal(result.Error)
-			}
-		}
-	}
-	remainder := data_len % RANGE
-	if remainder > 0 {
-		result := crete_entry(db, res, data_len-remainder, data_len)
-		if result.Error != nil {
-			log.Fatalln(result.Error)
-		}
+	result := crete_entry(db, res)
+	if result.Error != nil {
+		log.Fatal(result.Error)
 	}
 }
 func init_db(url string) (*gorm.DB, error) {
@@ -199,25 +182,21 @@ func main() {
 	// wg.Add(1)
 	// db_file, err := group_tracts.ReadData(DB_FILE)
 	// if err != nil {
-	// 	log.Fatalln(err)
 	// 	log.Fatalf("Error, file %s could not be read", db_file)
 	// }
 	// go repopulateGroupTracts(db, db_file, &wg)
 	// transit_file, err := group_tracts.ReadData(CBSA_TRANSIT_FILE)
 	// if err != nil {
-	// 	log.Fatalln(err)
 	// 	log.Fatalf("Error, file %s could not be read", transit_file)
 	// }
 	// go addTransitUsage(db, transit_file, &wg)
 	// bike_file, err := group_tracts.ReadData(CBSA_BIKE_FILE)
 	// if err != nil {
-	// 	log.Fatalln(err)
 	// 	log.Fatalf("Error, file %s could not be read", bike_file)
 	// }
 	// go addBikeRidership(db, bike_file, &wg)
 	// zip_file, err := group_tracts.ReadData(ZIPCODE_FILE)
 	// if err != nil {
-	// 	log.Fatalln(err)
 	// 	log.Fatalf("Error, file %s could not be read", zip_file)
 	// }
 	// go createZipToCBSA(db, zip_file, &wg)

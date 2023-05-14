@@ -22,7 +22,7 @@ type GroupTract struct {
 
 type GeoidDetail struct {
 	gorm.Model
-	Geoid     uint64
+	Geoid     uint64 `gorm:"primary_key;ForeignKey:Geoid;"`
 	Statefp   uint8
 	Countryfp uint16
 	Tractce   uint32
@@ -31,14 +31,14 @@ type GeoidDetail struct {
 
 type CSA struct {
 	gorm.Model
-	Geoid    uint64
+	Geoid    uint64 `gorm:"primary_key;ForeignKey:Geoid;"`
 	CSA      uint16
 	CSA_name string
 }
 
 type CBSA struct {
 	gorm.Model
-	Geoid             uint64
+	Geoid             uint64 `gorm:"primary_key;ForeignKey:Geoid;"`
 	CBSA              uint32
 	CBSA_name         string
 	PublicTansitUsage float64 `gorm:"default:0"`
@@ -47,7 +47,7 @@ type CBSA struct {
 
 type AC struct {
 	gorm.Model
-	Geoid    uint64
+	Geoid    uint64 `gorm:"primary_key;ForeignKey:Geoid;"`
 	AC_total float64
 	AC_water float64
 	AC_land  float64
@@ -56,7 +56,7 @@ type AC struct {
 
 type Population struct {
 	gorm.Model
-	Geoid     uint64
+	Geoid     uint64 `gorm:"primary_key;ForeignKey:Geoid;"`
 	Total_pop uint16
 	CountHU   float64
 	HH        float64
@@ -65,7 +65,7 @@ type Population struct {
 
 type Rank struct {
 	gorm.Model
-	Geoid      uint64
+	Geoid      uint64 `gorm:"primary_key;ForeignKey:Geoid;"`
 	D2b_e8mixa float64
 	D2a_ephhm  float64
 	D3b        float64
@@ -79,12 +79,12 @@ type Rank struct {
 
 type Shape struct {
 	gorm.Model
-	Geoid        uint64
+	Geoid        uint64 `gorm:"primary_key;ForeignKey:Geoid;"`
 	Shape_length float64
 	Shape_area   float64
 	Geometry     string
 }
 type Zipcode struct {
-	Zipcode string
+	Zipcode string `gorm:"primary_key"`
 	CBSA    uint32 `gorm:"ForeignKey:CBSA"`
 }
