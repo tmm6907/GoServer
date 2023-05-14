@@ -232,7 +232,8 @@ func (h handler) GetScores(ctx *gin.Context) {
 			ctx.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
-		if result := h.DB.Where("zipcode=?", zipcode).Find(&res); result.Error != nil {
+
+		if result := h.DB.Limit(query.limit).Where("zipcode=?", zipcode).Find(&res); result.Error != nil {
 			ctx.AbortWithError(http.StatusNotFound, result.Error)
 			return
 		}
