@@ -227,13 +227,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 			return
 		}
 	} else {
-		offset := ctx.Query("offset")
-		if offset != "" {
-			ctx.AbortWithStatus(http.StatusBadRequest)
-			return
-		}
-
-		if result := h.DB.Limit(query.limit).Where("zipcode=?", zipcode).Find(&res); result.Error != nil {
+		if result := h.DB.Limit(query.limit).Offset(query.offset).Where("zipcode=?", zipcode).Find(&res); result.Error != nil {
 			ctx.AbortWithError(http.StatusNotFound, result.Error)
 			return
 		}
