@@ -232,12 +232,12 @@ func (h handler) GetScores(ctx *gin.Context) {
 			ctx.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
-		if result := h.DB.Where("zipcode=?", zipcode).Find(&res); result.Error != nil {
+		if result := h.DB.Where(&Zipcode{Zipcode: zipcode}).Find(&res); result.Error != nil {
 			ctx.AbortWithError(http.StatusNotFound, result.Error)
 			return
 		}
 		for _, item := range res {
-			if result := h.DB.Where("cbsa=?", item.CBSA).Model(&Rank{}).Select("*").Joins("left join cbsas on cbsas.geoid = ranks.geoid").Limit(query.limit).Scan(&zipScores); result.Error != nil {
+			if result := h.DB.Where(&CBSA{CBSA: item.CBSA}).Model(&Rank{}).Select("*").Joins("left join cbsas on cbsas.geoid = ranks.geoid").Limit(query.limit).Scan(&zipScores); result.Error != nil {
 				fmt.Println(result.Error)
 			}
 			scores = append(scores, zipScores...)
@@ -247,10 +247,10 @@ func (h handler) GetScores(ctx *gin.Context) {
 	for i := range scores {
 		var csa CSA
 		var cbsa CBSA
-		if csa_result := h.DB.Where("geoid=?", scores[i].Geoid).First(&csa); csa_result.Error != nil {
+		if csa_result := h.DB.Where(&CSA{Geoid: scores[i].Geoid}).First(&csa); csa_result.Error != nil {
 			csa.CSA_name = ""
 		}
-		if cbsa_result := h.DB.Where("geoid=?", scores[i].Geoid).First(&cbsa); cbsa_result.Error != nil {
+		if cbsa_result := h.DB.Where(&CBSA{Geoid: scores[i].Geoid}).First(&cbsa); cbsa_result.Error != nil {
 			cbsa.CBSA_name = ""
 		}
 		results = append(
