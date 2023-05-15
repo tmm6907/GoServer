@@ -2,15 +2,11 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"strconv"
 	"sync"
 
-	"context"
-
-	"cloud.google.com/go/storage"
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"gorm.io/driver/mysql"
@@ -19,17 +15,6 @@ import (
 )
 
 const RANGE = 500
-
-type Bucket struct {
-	Client     *storage.Client
-	BucketName string
-	Bucket     *storage.BucketHandle
-
-	W       io.Writer
-	Ctx     context.Context
-	CleanUp []string
-	Failed  bool
-}
 
 func crete_entry(db *gorm.DB, data []group_tracts.GroupTract) *gorm.DB {
 	result := db.CreateInBatches(data, 50)
