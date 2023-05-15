@@ -6,19 +6,19 @@ An open-source API to access EPA's National Walkability Index for any address re
 ### Input
 ```
 // Search by address : Sreet, City, Zip
-curl -o out.json "opennwi.dev/scores/address?address=1600%20Pennsylvania%20Avenue%20NW%2C%20Washington%2C%20DC%2020500%20"
+curl -o out.json "opennwi.dev/scores?address=1600%20Pennsylvania%20Avenue%20NW%2C%20Washington%2C%20DC%2020500%20"
 
 // Search by address : Sreet, City
-curl -o out.json "opennwi.dev:8080/scores/address?address=1600%20Pennsylvania%20Avenue%20NW%2C%20Washington%2C%20DC"
+curl -o out.json "opennwi.dev/scores?address=1600%20Pennsylvania%20Avenue%20NW%2C%20Washington%2C%20DC"
 
 // Get list of scores (limit=50)
-curl -o out.json "opennwi.dev:8080/scores"
+curl -o out.json "opennwi.dev/scores"
 
 // Get list of scores (limit=3, offset=13000)
-curl -o out.json "opennwi.dev:8080/scores?limit=3&offset=13000"
+curl -o out.json "opennwi.dev/scores?limit=3&offset=13000"
 
 // Get List of scores by Zip
-curl -o out.json "opennwi.dev:8080/scores?zipcode=20024?limit=3&offset=13000"
+curl -o out.json "opennwi.dev/scores?zipcode=20024?limit=3&offset=13000"
 ```
 
 ### Output *out.json*
