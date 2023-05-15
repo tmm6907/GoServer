@@ -28,6 +28,8 @@ Where **nwi** is the total score of walkability for the given area. Scores range
 {
   "geoid": 110010062021,
   "nwi": 18,
+  "regionalTransitUsagePercentage": 4.1,
+  "regionalBikeRidership": 14909,
   "searchedAddress": "1600 Pennsylvania Avenue NW, Washington, DC 20500"
 }
 
@@ -35,7 +37,9 @@ Where **nwi** is the total score of walkability for the given area. Scores range
 {
   "geoid": 110010062021,
   "nwi": 18,
-  "searchedAddress": "1600 Pennsylvania Avenue NW, Washington DC"
+  "regionalTransitUsagePercentage": 4.1,
+  "regionalBikeRidership": 14909,
+  "searchedAddress": "1600 Pennsylvania Avenue NW, Washington, DC"
 }
 
 // list of scores (limit=50)
