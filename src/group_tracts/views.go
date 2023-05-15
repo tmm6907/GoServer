@@ -14,8 +14,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const RANGE_LIMIT int = 100
-
 func getGeoid(address string) (string, error) {
 	var geoidResults GeoCodingResult
 	url := "https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress?address=" + address + "&benchmark=2020&vintage=Census2010_Census2020&format=json"

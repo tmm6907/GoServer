@@ -14,8 +14,6 @@ import (
 	group_tracts "nwi.io/nwi/group_tracts"
 )
 
-const RANGE = 500
-
 func crete_entry(db *gorm.DB, data []group_tracts.GroupTract) *gorm.DB {
 	result := db.CreateInBatches(data, 50)
 	if result.Error != nil {
