@@ -26,6 +26,7 @@ const RANGE_LIMIT int = 100
 func (h handler) GetScores(ctx *gin.Context) {
 	address := strings.ReplaceAll(ctx.Query("address"), " ", "%20")
 	if address != ""{
+		log.FatalLn("Received Address!", address)
 		var geoidResults GeoCodingResult
 		geoid := make(chan string)
 		go func() {
