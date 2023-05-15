@@ -102,17 +102,17 @@ func (h handler) GetScores(ctx *gin.Context) {
 			Offset: offset,
 		}
 		if zipcode == "" {
-			if result := h.DB.Limit(query.limit).Offset(query.offset).Find(&scores); result.Error != nil {
+			if result := h.DB.Limit(query.Limit).Offset(query.Offset).Find(&scores); result.Error != nil {
 				ctx.AbortWithError(http.StatusNotFound, result.Error)
 				return
 			}
 		} else {
-			if result := h.DB.Limit(query.limit).Offset(query.offset).Where("zipcode=?", zipcode).Find(&res); result.Error != nil {
+			if result := h.DB.Limit(query.Limit).Offset(query.Offset).Where("zipcode=?", zipcode).Find(&res); result.Error != nil {
 				ctx.AbortWithError(http.StatusNotFound, result.Error)
 				return
 			}
 			for _, item := range res {
-				if result := h.DB.Where(&CBSA{CBSA: item.CBSA}).Model(&Rank{}).Select("*").Joins("left join cbsas on cbsas.geoid = ranks.geoid").Limit(query.limit).Scan(&zipScores); result.Error != nil {
+				if result := h.DB.Where(&CBSA{CBSA: item.CBSA}).Model(&Rank{}).Select("*").Joins("left join cbsas on cbsas.geoid = ranks.geoid").Limit(query.Limit).Scan(&zipScores); result.Error != nil {
 					fmt.Println(result.Error)
 				}
 				scores = append(scores, zipScores...)
