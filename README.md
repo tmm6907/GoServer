@@ -6,16 +6,19 @@ An open-source API to access EPA's National Walkability Index for any address re
 ### Input
 ```
 // Search by address : Sreet, City, Zip
-curl -o out.json "localhost:8080/scores/address?address=1600%20Pennsylvania%20Avenue%20NW%2C%20Washington%2C%20DC%2020500%20"
+curl -o out.json "opennwi.dev/scores/address?address=1600%20Pennsylvania%20Avenue%20NW%2C%20Washington%2C%20DC%2020500%20"
 
 // Search by address : Sreet, City
-curl -o out.json "localhost:8080/scores/address?address=1600%20Pennsylvania%20Avenue%20NW%2C%20Washington%2C%20DC"
+curl -o out.json "opennwi.dev:8080/scores/address?address=1600%20Pennsylvania%20Avenue%20NW%2C%20Washington%2C%20DC"
 
 // Get list of scores (limit=50)
-curl -o out.json "localhost:8080/scores"
+curl -o out.json "opennwi.dev:8080/scores"
 
 // Get list of scores (limit=3, offset=13000)
-curl -o out.json "localhost:8080/scores?limit=3&offset=13000"
+curl -o out.json "opennwi.dev:8080/scores?limit=3&offset=13000"
+
+// Get List of scores by Zip
+curl -o out.json "opennwi.dev:8080/scores?zipcode=20024?limit=3&offset=13000"
 ```
 
 ### Output *out.json*
@@ -42,44 +45,56 @@ Where **nwi** is the total score of walkability for the given area. Scores range
     "geoid": 481130078254,
     "csa_name": "Dallas-Fort Worth, TX-OK",
     "cbsa_name": "Dallas-Fort Worth-Arlington, TX",
-    "nwi": 14
+    "nwi": 14,
+    "regionalTransitUsagePercentage": 0.6,
+    "regionalBikeRidership": 4992
   },
   {
     "id": 1,
     "geoid": 481130078252,
     "csa_name": "Dallas-Fort Worth, TX-OK",
     "cbsa_name": "Dallas-Fort Worth-Arlington, TX",
-    "nwi": 10.833333333333334
+    "nwi": 10.833333333333334,
+    "regionalTransitUsagePercentage": 0.6,
+    "regionalBikeRidership": 4992
   },
   {
     "id": 2,
     "geoid": 481130078253,
     "csa_name": "Dallas-Fort Worth, TX-OK",
     "cbsa_name": "Dallas-Fort Worth-Arlington, TX",
-    "nwi": 8.333333333333334
+    "nwi": 8.333333333333334,
+    "regionalTransitUsagePercentage": 0.6,
+    "regionalBikeRidership": 4992
   },
   {
     "id": 3,
     "geoid": 481130078241,
     "csa_name": "Dallas-Fort Worth, TX-OK",
     "cbsa_name": "Dallas-Fort Worth-Arlington, TX",
-    "nwi": 15.666666666666668
+    "nwi": 15.666666666666668,
+    "regionalTransitUsagePercentage": 0.6,
+    "regionalBikeRidership": 4992
   },
   {
     "id": 4,
     "geoid": 481130078242,
     "csa_name": "Dallas-Fort Worth, TX-OK",
     "cbsa_name": "Dallas-Fort Worth-Arlington, TX",
-    "nwi": 10.166666666666668
+    "nwi": 10.166666666666668,
+    "regionalTransitUsagePercentage": 0.6,
+    "regionalBikeRidership": 4992
   },
   {
     "id": 5,
     "geoid": 481130078271,
     "csa_name": "Dallas-Fort Worth, TX-OK",
     "cbsa_name": "Dallas-Fort Worth-Arlington, TX",
-    "nwi": 6.833333333333333
+    "nwi": 6.833333333333333,
+    "regionalTransitUsagePercentage": 0.6,
+    "regionalBikeRidership": 4992
   },
-  ...
+    ...
 ]
 
 // list of scores (limit=3, offset=13000)
@@ -89,21 +104,27 @@ Where **nwi** is the total score of walkability for the given area. Scores range
     "geoid": 484599504002,
     "csa_name": "",
     "cbsa_name": "Longview, TX",
-    "nwi": 6.166666666666667
+    "nwi": 6.166666666666667,
+    "regionalTransitUsagePercentage": 0,
+    "regionalBikeRidership": 0
   },
   {
     "id": 13001,
     "geoid": 484599505001,
     "csa_name": "",
     "cbsa_name": "Longview, TX",
-    "nwi": 3.5
+    "nwi": 3.5,
+    "regionalTransitUsagePercentage": 0,
+    "regionalBikeRidership": 0
   },
   {
     "id": 13002,
     "geoid": 484599501006,
     "csa_name": "",
     "cbsa_name": "Longview, TX",
-    "nwi": 2.8333333333333335
+    "nwi": 2.8333333333333335,
+    "regionalTransitUsagePercentage": 0,
+    "regionalBikeRidership": 0
   }
 ]
 ```
