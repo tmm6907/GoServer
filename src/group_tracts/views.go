@@ -8,63 +8,62 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 const RANGE_LIMIT int = 100
-// func (h handler) GetScoreByAddress(ctx *gin.Context) {
-// 	address := strings.ReplaceAll(ctx.Query("address"), " ", "%20")
-// 	geoid := make(chan string)
-// 	var results GeoCodingResult
-// 	if address != "" {
-		
-// 	}
-	
-// }
+
+func getGeoid(address string) (string, error) {
+	var geoidResults GeoCodingResult
+	url := "https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress?address=" + address + "&benchmark=2020&vintage=Census2010_Census2020&format=json"
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "Golang_Spider_Bot/3.0")
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	if err := json.Unmarshal(body, &geoidResults); err != nil { // Parse []byte to go struct pointer
+		return "", err
+	}
+	if len(geoidResults.Result.AddressMatches) > 0 {
+		return geoidResults.Result.AddressMatches[0].Geographies.CensusBlocks[0].Geoid[:len(geoidResults.Result.AddressMatches[0].Geographies.CensusBlocks[0].Geoid)-3], nil
+	} else {
+		return "", nil
+	}
+}
 
 func (h handler) GetScores(ctx *gin.Context) {
 	address := strings.ReplaceAll(ctx.Query("address"), " ", "%20")
-	if address != ""{
-		log.FatalLn("Received Address!", address)
-		var geoidResults GeoCodingResult
+	if address != "" {
+		var wg sync.WaitGroup
+		wg.Add(1)
 		geoid := make(chan string)
+		start := time.Now()
 		go func() {
-			url := "https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress?address=" + address + "&benchmark=2020&vintage=Census2010_Census2020&format=json"
-			client := &http.Client{}
-			req, err := http.NewRequest("GET", url, nil)
+			wg.Done()
+			res, err := getGeoid(address)
 			if err != nil {
-				ctx.AbortWithStatus(http.StatusNotFound)
-				return
+				ctx.AbortWithError(http.StatusNotFound, err)
 			}
-			log.Println("Request = ", req)
-			req.Header.Set("User-Agent", "Golang_Spider_Bot/3.0")
-			resp, err := client.Do(req)
-			if err != nil {
-				ctx.AbortWithError(http.StatusBadRequest, err)
-				return
-			}
-			defer resp.Body.Close()
-			body, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				ctx.AbortWithError(http.StatusBadRequest, err)
-				return
-			}
-			if err := json.Unmarshal(body, &geoidResults); err != nil { // Parse []byte to go struct pointer
-				ctx.AbortWithError(http.StatusBadRequest, err)
-				return
-			}
-			if len(geoidResults.Result.AddressMatches) > 0 {
-				geoids := geoidResults.Result.AddressMatches[0].Geographies.CensusBlocks[0].Geoid
-				geoid <- geoids[:len(geoids)-3]
-			} else {
-				geoid <- ""
-			}
+			geoid <- res
 		}()
 		var score Rank
 		var cbsa CBSA
 		geoid10, err := strconv.ParseUint(<-geoid, 10, 64)
-		log.Println(geoid10)
+		duration := time.Since(start)
+		log.Printf("Geoid: %v took %v to execute. \n", geoid10, duration)
 		if err != nil {
 			ctx.AbortWithError(http.StatusNotFound, err)
 			return
@@ -85,7 +84,8 @@ func (h handler) GetScores(ctx *gin.Context) {
 			RegionalBikeRidership:          cbsa.BikeRidership,
 		}
 		ctx.JSON(http.StatusOK, &result)
-	}else{
+		wg.Wait()
+	} else {
 		var scores []Rank
 		var zipScores []Rank
 		var res []Zipcode
@@ -113,7 +113,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 				return
 			}
 			for _, item := range res {
-				if result := h.DB.Where(&CBSA{CBSA: item.CBSA}).Model(&Rank{}).Select("*").Joins("left join cbsas on cbsas.geoid = ranks.geoid").Limit(query.Limit).Scan(&zipScores); result.Error != nil {
+				if result := h.DB.Where("cbsa=?", item.CBSA).Model(&Rank{}).Select("*").Joins("left join cbsas on cbsas.geoid = ranks.geoid").Limit(query.Limit).Scan(&zipScores); result.Error != nil {
 					fmt.Println(result.Error)
 				}
 				scores = append(scores, zipScores...)
