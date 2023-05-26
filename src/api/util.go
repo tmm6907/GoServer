@@ -1,9 +1,11 @@
-package group_tracts
+package api
 
 import (
 	"encoding/csv"
 	"os"
 	"strconv"
+
+	"nwi.io/nwi/models"
 )
 
 func ReadData(fileName string) ([][]string, error) {
@@ -31,8 +33,8 @@ func ReadData(fileName string) ([][]string, error) {
 	return records, nil
 }
 
-func CreateTractGroups(database [][]string) []GroupTract {
-	var census_tract_groups []GroupTract
+func CreateTractGroups(database [][]string) []models.BlockGroup {
+	var census_tract_groups []models.BlockGroup
 	for _, record := range database {
 		record[30] = record[30][16 : len(record[30])-3]
 		geoid10, err := strconv.ParseUint(record[1], 10, 64)
@@ -144,35 +146,35 @@ func CreateTractGroups(database [][]string) []GroupTract {
 		if err != nil {
 			sh_a = 0
 		}
-		group_tract := GroupTract{
+		group_tract := models.BlockGroup{
 			Geoid10: geoid10,
 			Geoid20: geoid20,
-			GeoidDetail: GeoidDetail{
+			GeoidDetail: models.GeoidDetail{
 				Statefp:   uint8(statefp),
 				Countryfp: uint16(countryfp),
 				Tractce:   uint32(tractce),
 				Blkgrpce:  uint8(blkgrpce)},
-			CSA: CSA{
+			CSA: models.CSA{
 				CSA:      uint16(csa),
 				CSA_name: record[8],
 			},
-			CBSA: CBSA{
+			CBSA: models.CBSA{
 				CBSA:      uint32(cbsa),
 				CBSA_name: record[10],
 			},
-			AC: AC{
+			AC: models.AC{
 				AC_total: ac_t,
 				AC_water: ac_w,
 				AC_land:  ac_l,
 				AC_unpr:  ac_u,
 			},
-			Population: Population{
+			Population: models.Population{
 				Total_pop: uint16(totp),
 				CountHU:   counthu,
 				HH:        hh,
 				Workers:   uint16(workers),
 			},
-			Rank: Rank{
+			Rank: models.Rank{
 				D2b_e8mixa: d2b,
 				D2a_ephhm:  d2a,
 				D3b:        d3b,
@@ -183,7 +185,7 @@ func CreateTractGroups(database [][]string) []GroupTract {
 				D4a_ranked: float32(d4a_r),
 				NWI:        nwi,
 			},
-			Shape: Shape{
+			Shape: models.Shape{
 				Shape_length: sh_l,
 				Shape_area:   sh_a,
 				Geometry:     record[30],
@@ -194,8 +196,8 @@ func CreateTractGroups(database [][]string) []GroupTract {
 	return census_tract_groups
 }
 
-func MatchZipToCBSA(records [][]string) []Zipcode {
-	var zipcodes []Zipcode
+func MatchZipToCBSA(records [][]string) []models.ZipCode {
+	var zipcodes []models.ZipCode
 	seen := make(map[string]uint32)
 	for _, record := range records {
 		cbsa, err := strconv.ParseUint(record[7], 10, 32)
@@ -205,7 +207,7 @@ func MatchZipToCBSA(records [][]string) []Zipcode {
 		seen[record[0]] = uint32(cbsa)
 	}
 	for key, val := range seen {
-		zipcodes = append(zipcodes, Zipcode{
+		zipcodes = append(zipcodes, models.ZipCode{
 			Zipcode: key,
 			CBSA:    val,
 		})

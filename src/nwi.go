@@ -11,10 +11,11 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	group_tracts "nwi.io/nwi/group_tracts"
+	"nwi.io/nwi/api"
+	"nwi.io/nwi/models"
 )
 
-func crete_entry(db *gorm.DB, data []group_tracts.GroupTract) *gorm.DB {
+func crete_entry(db *gorm.DB, data []models.BlockGroup) *gorm.DB {
 	result := db.CreateInBatches(data, 50)
 	if result.Error != nil {
 		log.Fatalln(result.Error)
@@ -22,7 +23,7 @@ func crete_entry(db *gorm.DB, data []group_tracts.GroupTract) *gorm.DB {
 	return result
 }
 
-func crete_zipcode_entry(db *gorm.DB, data []group_tracts.Zipcode) *gorm.DB {
+func crete_zipcode_entry(db *gorm.DB, data []models.ZipCode) *gorm.DB {
 	result := db.CreateInBatches(data, 50)
 	if result.Error != nil {
 		log.Println(result.Error)
@@ -32,14 +33,14 @@ func crete_zipcode_entry(db *gorm.DB, data []group_tracts.Zipcode) *gorm.DB {
 
 func addTransitUsage(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 	defer wg.Done()
-	var cbsas []group_tracts.CBSA
+	var cbsas []models.CBSA
 
 	for _, record := range database {
 		id, err := strconv.ParseUint(record[4], 10, 64)
 		if err != nil {
 			id = 99999
 		}
-		result := db.Where(&group_tracts.CBSA{CBSA: uint32(id)}).Find(&cbsas)
+		result := db.Where(&models.CBSA{CBSA: uint32(id)}).Find(&cbsas)
 		if result.Error != nil {
 			log.Fatalln(result.Error)
 		}
@@ -59,13 +60,13 @@ func addTransitUsage(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 
 func addBikeRidership(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 	defer wg.Done()
-	var cbsas []group_tracts.CBSA
+	var cbsas []models.CBSA
 	for _, record := range database {
 		id, err := strconv.ParseUint(record[3], 10, 64)
 		if err != nil {
 			id = 99999
 		}
-		result := db.Where(&group_tracts.CBSA{CBSA: uint32(id)}).Find(&cbsas)
+		result := db.Where(&models.CBSA{CBSA: uint32(id)}).Find(&cbsas)
 		if result.Error != nil {
 			fmt.Println(result.Error)
 		}
@@ -84,7 +85,7 @@ func addBikeRidership(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 }
 func createZipToCBSA(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 	defer wg.Done()
-	zipcodes := group_tracts.MatchZipToCBSA(database)
+	zipcodes := api.MatchZipToCBSA(database)
 	result := crete_zipcode_entry(db, zipcodes)
 	if result.Error != nil {
 		log.Println(result.Error)
@@ -93,9 +94,9 @@ func createZipToCBSA(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 
 func repopulateGroupTracts(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 	defer wg.Done()
-	db_data := make(chan []group_tracts.GroupTract)
+	db_data := make(chan []models.BlockGroup)
 	go func() {
-		res := group_tracts.CreateTractGroups(database)
+		res := api.CreateTractGroups(database)
 		db_data <- res
 	}()
 	res := <-db_data
@@ -111,25 +112,21 @@ func init_db(url string) (*gorm.DB, error) {
 		return nil, err
 	}
 	db.AutoMigrate(
-		&group_tracts.GroupTract{},
-		&group_tracts.GeoidDetail{},
-		&group_tracts.CSA{},
-		&group_tracts.CBSA{},
-		&group_tracts.AC{},
-		&group_tracts.Population{},
-		&group_tracts.Rank{},
-		&group_tracts.Shape{},
-		&group_tracts.Zipcode{},
+		&models.BlockGroup{},
+		&models.GeoidDetail{},
+		&models.CSA{},
+		&models.CBSA{},
+		&models.AC{},
+		&models.Population{},
+		&models.Rank{},
+		&models.Shape{},
+		&models.ZipCode{},
 	)
 	return db, nil
 }
 
 func main() {
-	gin.SetMode(gin.ReleaseMode)
-	port := os.Getenv("INTERNAL_PORT")
-	if port == "" {
-		log.Fatalf("Fatal Error in connect_unix.go: %s environment variable not set.", port)
-	}
+	// gin.SetMode(gin.ReleaseMode)
 	dbUser := os.Getenv("DB_USER")
 	if dbUser == "" {
 		log.Fatalf("Fatal Error in connect_unix.go: %s environment variable not set.", dbUser)
@@ -160,29 +157,29 @@ func main() {
 	}
 	// var wg sync.WaitGroup
 	// wg.Add(1)
-	// db_file, err := group_tracts.ReadData(DB_FILE)
+	// db_file, err := models.ReadData(DB_FILE)
 	// if err != nil {
 	// 	log.Fatalf("Error, file %s could not be read", db_file)
 	// }
 	// go repopulateGroupTracts(db, db_file, &wg)
-	// transit_file, err := group_tracts.ReadData(CBSA_TRANSIT_FILE)
+	// transit_file, err := models.ReadData(CBSA_TRANSIT_FILE)
 	// if err != nil {
 	// 	log.Fatalf("Error, file %s could not be read", transit_file)
 	// }
 	// go addTransitUsage(db, transit_file, &wg)
-	// bike_file, err := group_tracts.ReadData(CBSA_BIKE_FILE)
+	// bike_file, err := models.ReadData(CBSA_BIKE_FILE)
 	// if err != nil {
 	// 	log.Fatalf("Error, file %s could not be read", bike_file)
 	// }
 	// go addBikeRidership(db, bike_file, &wg)
-	// zip_file, err := group_tracts.ReadData(ZIPCODE_FILE)
+	// zip_file, err := models.ReadData(ZIPCODE_FILE)
 	// if err != nil {
 	// 	log.Fatalf("Error, file %s could not be read", zip_file)
 	// }
 	// go createZipToCBSA(db, zip_file, &wg)
 
 	router := gin.Default()
-	group_tracts.RegisterRoutes(router, db)
+	api.RegisterRoutes(router, db)
 	router.GET("/", func(ctx *gin.Context) {
 		ctx.JSON(200, gin.H{
 			"title":     "Open-NWI API",
@@ -198,5 +195,5 @@ func main() {
 		)
 		// wg.Wait()
 	})
-	router.Run(port)
+	router.Run()
 }

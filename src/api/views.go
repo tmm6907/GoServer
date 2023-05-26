@@ -1,9 +1,9 @@
-package group_tracts
+package api
 
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -12,10 +12,12 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"nwi.io/nwi/models"
+	"nwi.io/nwi/serializers"
 )
 
 func getGeoid(address string) (string, error) {
-	var geoidResults GeoCodingResult
+	var geoidResults serializers.GeoCodingResult
 	url := "https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress?address=" + address + "&benchmark=2020&vintage=Census2010_Census2020&format=json"
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
@@ -28,7 +30,7 @@ func getGeoid(address string) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
@@ -57,8 +59,8 @@ func (h handler) GetScores(ctx *gin.Context) {
 			}
 			geoid <- res
 		}()
-		var score Rank
-		var cbsa CBSA
+		var score models.Rank
+		var cbsa models.CBSA
 		geoid10, err := strconv.ParseUint(<-geoid, 10, 64)
 		duration := time.Since(start)
 		log.Printf("Geoid: %v took %v to execute. \n", geoid10, duration)
@@ -66,15 +68,15 @@ func (h handler) GetScores(ctx *gin.Context) {
 			ctx.AbortWithError(http.StatusNotFound, err)
 			return
 		}
-		if result := h.DB.Where(&Rank{Geoid: geoid10}).First(&score); result.Error != nil {
+		if result := h.DB.Where(&models.Rank{Geoid: geoid10}).First(&score); result.Error != nil {
 			ctx.AbortWithError(http.StatusNotFound, result.Error)
 			return
 		}
-		if result := h.DB.Where(&CBSA{Geoid: geoid10}).First(&cbsa); result.Error != nil {
+		if result := h.DB.Where(&models.CBSA{Geoid: geoid10}).First(&cbsa); result.Error != nil {
 			ctx.AbortWithError(http.StatusNotFound, result.Error)
 			return
 		}
-		result := AddressScoreResult{
+		result := serializers.AddressScoreResult{
 			Geoid:                          geoid10,
 			NWI:                            score.NWI,
 			SearchedAddress:                ctx.Query("address"),
@@ -84,9 +86,9 @@ func (h handler) GetScores(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, &result)
 		wg.Wait()
 	} else {
-		var scores []Rank
-		var zipScores []Rank
-		var res []Zipcode
+		var scores []models.Rank
+		var zipScores []models.Rank
+		var res []models.ZipCode
 		zipcode := ctx.Query("zipcode")
 		limit, limit_err := strconv.Atoi(ctx.Query("limit"))
 		if limit_err != nil {
@@ -96,7 +98,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 		if offset_err != nil {
 			offset = 0
 		}
-		query := ScoresQuery{
+		query := serializers.ScoresQuery{
 			Limit:  limit,
 			Offset: offset,
 		}
@@ -111,25 +113,25 @@ func (h handler) GetScores(ctx *gin.Context) {
 				return
 			}
 			for _, item := range res {
-				if result := h.DB.Limit(query.Limit).Offset(query.Offset).Where("cbsa=?", item.CBSA).Model(&Rank{}).Select("*").Joins("left join cbsas on cbsas.geoid = ranks.geoid").Scan(&zipScores); result.Error != nil {
+				if result := h.DB.Limit(query.Limit).Offset(query.Offset).Where("cbsa=?", item.CBSA).Model(&models.Rank{}).Select("*").Joins("left join cbsas on cbsas.geoid = ranks.geoid").Scan(&zipScores); result.Error != nil {
 					fmt.Println(result.Error)
 				}
 				scores = append(scores, zipScores...)
 			}
 		}
-		results := ScoreResults{}
+		results := serializers.ScoreResults{}
 		for i := range scores {
-			var csa CSA
-			var cbsa CBSA
-			if csa_result := h.DB.Where(&CBSA{Geoid: scores[i].Geoid}).First(&csa); csa_result.Error != nil {
+			var csa models.CSA
+			var cbsa models.CBSA
+			if csa_result := h.DB.Where(&models.CBSA{Geoid: scores[i].Geoid}).First(&csa); csa_result.Error != nil {
 				csa.CSA_name = ""
 			}
-			if cbsa_result := h.DB.Where(&CBSA{Geoid: scores[i].Geoid}).First(&cbsa); cbsa_result.Error != nil {
+			if cbsa_result := h.DB.Where(&models.CBSA{Geoid: scores[i].Geoid}).First(&cbsa); cbsa_result.Error != nil {
 				cbsa.CBSA_name = ""
 			}
 			results = append(
 				results,
-				ScoreResult{
+				serializers.ScoreResult{
 					ID:                             i + offset,
 					Geoid:                          scores[i].Geoid,
 					CSA_name:                       csa.CSA_name,
