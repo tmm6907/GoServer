@@ -143,6 +143,10 @@ func main() {
 	if connectionName == "" {
 		log.Fatalf("Fatal Error in connect_unix.go: %s environment variable not set.", connectionName)
 	}
+	port := os.Getenv("INTERNAL_PORT")
+	if port == "" {
+		log.Fatalf("Fatal Error in connect_unix.go: %s environment variable not set.", port)
+	}
 	// "/cloudsql/"+connectionName,
 	dbUrl := fmt.Sprintf(
 		"%s:%s@unix(%s)/%s?parseTime=true",
@@ -195,5 +199,5 @@ func main() {
 		)
 		// wg.Wait()
 	})
-	router.Run()
+	router.Run(port)
 }
