@@ -15,18 +15,10 @@ import (
 	"nwi.io/nwi/models"
 )
 
-func crete_entry(db *gorm.DB, data []models.BlockGroup) *gorm.DB {
+func create_entry[T []models.BlockGroup | []models.ZipCode](db *gorm.DB, data T) *gorm.DB {
 	result := db.CreateInBatches(data, 50)
 	if result.Error != nil {
 		log.Fatalln(result.Error)
-	}
-	return result
-}
-
-func crete_zipcode_entry(db *gorm.DB, data []models.ZipCode) *gorm.DB {
-	result := db.CreateInBatches(data, 50)
-	if result.Error != nil {
-		log.Println(result.Error)
 	}
 	return result
 }
@@ -86,7 +78,7 @@ func addBikeRidership(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 func createZipToCBSA(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	zipcodes := api.MatchZipToCBSA(database)
-	result := crete_zipcode_entry(db, zipcodes)
+	result := create_entry(db, zipcodes)
 	if result.Error != nil {
 		log.Println(result.Error)
 	}
@@ -100,7 +92,7 @@ func repopulateGroupTracts(db *gorm.DB, database [][]string, wg *sync.WaitGroup)
 		db_data <- res
 	}()
 	res := <-db_data
-	result := crete_entry(db, res)
+	result := create_entry(db, res)
 	if result.Error != nil {
 		log.Fatal(result.Error)
 	}
