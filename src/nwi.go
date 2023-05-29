@@ -118,7 +118,7 @@ func init_db(url string) (*gorm.DB, error) {
 }
 
 func main() {
-	// gin.SetMode(gin.ReleaseMode)
+	gin.SetMode(gin.ReleaseMode)
 	dbUser := os.Getenv("DB_USER")
 	if dbUser == "" {
 		log.Fatalf("Fatal Error in connect_unix.go: %s environment variable not set.", dbUser)
