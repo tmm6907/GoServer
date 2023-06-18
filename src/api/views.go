@@ -80,8 +80,11 @@ func (h handler) GetScores(ctx *gin.Context) {
 			Geoid:                          geoid10,
 			NWI:                            score.NWI,
 			SearchedAddress:                ctx.Query("address"),
-			RegionalTransitUsagePercentage: cbsa.PublicTansitUsage,
+			RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
+			RegionalTransitUsage:           cbsa.PublicTansitEstimate,
 			RegionalBikeRidership:          cbsa.BikeRidership,
+			TransitScore:                   score.TransitScore,
+			BikeScore:                      score.BikeScore,
 		}
 		ctx.JSON(http.StatusOK, &result)
 		wg.Wait()
@@ -137,8 +140,11 @@ func (h handler) GetScores(ctx *gin.Context) {
 					CSA_name:                       csa.CSA_name,
 					CBSA_name:                      cbsa.CBSA_name,
 					NWI:                            scores[i].NWI,
-					RegionalTransitUsagePercentage: cbsa.PublicTansitUsage,
+					RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
+					RegionalTransitUsage:           cbsa.PublicTansitEstimate,
 					RegionalBikeRidership:          cbsa.BikeRidership,
+					TransitScore:                   scores[i].TransitScore,
+					BikeScore:                      scores[i].BikeScore,
 				},
 			)
 		}

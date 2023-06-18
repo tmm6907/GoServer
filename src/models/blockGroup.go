@@ -1,18 +1,17 @@
 package models
 
-import (
-	"gorm.io/gorm"
-)
+import "time"
 
 type BlockGroup struct {
-	gorm.Model
-	Geoid10     uint64 `gorm:"primary_key;"`
+	Geoid10     uint64 `gorm:"primary_key; auto_increment:false"`
 	Geoid20     uint64
-	GeoidDetail GeoidDetail `gorm:"ForeignKey:Geoid"`
-	CSA         CSA         `gorm:"ForeignKey:Geoid"`
-	CBSA        CBSA        `gorm:"ForeignKey:Geoid"`
-	AC          AC          `gorm:"ForeignKey:Geoid"`
-	Population  Population  `gorm:"ForeignKey:Geoid"`
-	Rank        Rank        `gorm:"ForeignKey:Geoid"`
-	Shape       Shape       `gorm:"ForeignKey:Geoid"`
+	GeoidDetail GeoidDetail `gorm:"ForeignKey:Geoid;OnUpdate:CASCADE,OnDelete:SET NULL"`
+	CSA         CSA         `gorm:"ForeignKey:Geoid;OnUpdate:CASCADE,OnDelete:SET NULL"`
+	CBSA        CBSA        `gorm:"ForeignKey:Geoid;OnUpdate:CASCADE,OnDelete:SET NULL"`
+	AC          AC          `gorm:"ForeignKey:Geoid;OnUpdate:CASCADE,OnDelete:SET NULL"`
+	Population  Population  `gorm:"ForeignKey:Geoid;OnUpdate:CASCADE,OnDelete:SET NULL"`
+	Rank        Rank        `gorm:"ForeignKey:Geoid;OnUpdate:CASCADE,OnDelete:SET NULL"`
+	Shape       Shape       `gorm:"ForeignKey:Geoid;OnUpdate:CASCADE,OnDelete:SET NULL"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }

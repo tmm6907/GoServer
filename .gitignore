@@ -2,3 +2,5 @@
 *.code-workspace
 envs/
 hello
+*.png
+*.svg

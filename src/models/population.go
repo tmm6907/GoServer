@@ -4,7 +4,7 @@ import "gorm.io/gorm"
 
 type Population struct {
 	gorm.Model
-	Geoid     uint64 `gorm:"primary_key;ForeignKey:Geoid;"`
+	Geoid     uint64 `gorm:"ForeignKey:Geoid10;autoIncrement:false"`
 	Total_pop uint16
 	CountHU   float64
 	HH        float64
