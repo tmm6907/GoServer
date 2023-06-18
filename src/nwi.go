@@ -168,10 +168,10 @@ func main() {
 	}
 	// "/cloudsql/"+connectionName,
 	dbUrl := fmt.Sprintf(
-		"%s:%s@tcp(%s)/%s?parseTime=true",
+		"%s:%s@unix(%s)/%s?parseTime=true",
 		dbUser,
 		dbPass,
-		"localhost",
+		"/cloudsql/"+connectionName,
 		dbName,
 	)
 	db, err := init_db(dbUrl)
