@@ -58,6 +58,7 @@ func addTransitScores(db *gorm.DB, wg *sync.WaitGroup) {
 	defer wg.Done()
 	var cbsas []models.CBSA
 	var quantiles api.Quantile
+	var rank models.Rank
 	cbsaResult := db.Find(&cbsas)
 	if cbsaResult.Error != nil {
 		fmt.Print(cbsaResult.Error)
@@ -77,15 +78,18 @@ func addTransitScores(db *gorm.DB, wg *sync.WaitGroup) {
 		}
 	}
 	for i := range cbsas {
-		go func(i int) {
-			rank := api.GetTransitScore(cbsas[i].PublicTansitPercentage, quantiles)
-			db.Model(&models.Rank{}).Where(&models.Rank{Geoid: cbsas[i].Geoid}).Updates(models.Rank{TransitScore: uint8(rank)})
-		}(i)
+		searchRank := api.GetTransitScore(cbsas[i].PublicTansitPercentage, quantiles)
+		if rank_result := db.Where(&models.Rank{Geoid: cbsas[i].Geoid}).First(&rank); rank_result.Error != nil {
+			fmt.Println(rank_result.Error)
+		}
+		rank.TransitScore = uint8(searchRank)
+		db.Save(&rank)
 	}
 }
 
 func addBikeRidership(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 	defer wg.Done()
+	var cbsa models.CBSA
 	for _, record := range database {
 		cbsa_id, err := strconv.ParseUint(record[3], 10, 64)
 		if err != nil {
@@ -98,7 +102,11 @@ func addBikeRidership(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 			fmt.Println(err)
 			usage = 0
 		}
-		db.Model(&models.CBSA{}).Where("CBSA = ?", uint32(cbsa_id)).Updates(models.CBSA{BikeRidership: usage})
+		if cbsa_result := db.Where(&models.CBSA{CBSA: uint32(cbsa_id)}).First(&cbsa); cbsa_result.Error != nil {
+			fmt.Println(cbsa_result.Error)
+		}
+		cbsa.BikeRidership = usage
+		db.Save(&cbsa)
 	}
 
 }
@@ -145,7 +153,7 @@ func init_db(url string) (*gorm.DB, error) {
 }
 
 func main() {
-	gin.SetMode(gin.ReleaseMode)
+	// gin.SetMode(gin.ReleaseMode)
 	dbUser := os.Getenv("DB_USER")
 	if dbUser == "" {
 		log.Fatalf("Fatal Error in connect_unix.go: %s environment variable not set.", dbUser)
@@ -168,10 +176,10 @@ func main() {
 	}
 	// "/cloudsql/"+connectionName,
 	dbUrl := fmt.Sprintf(
-		"%s:%s@unix(%s)/%s?parseTime=true",
+		"%s:%s@tcp(%s)/%s?parseTime=true",
 		dbUser,
 		dbPass,
-		"/cloudsql/"+connectionName,
+		"localhost",
 		dbName,
 	)
 	db, err := init_db(dbUrl)

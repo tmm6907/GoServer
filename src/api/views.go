@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,6 +16,14 @@ import (
 	"nwi.io/nwi/models"
 	"nwi.io/nwi/serializers"
 )
+
+type authError struct {
+	Message string
+}
+
+func (e *authError) Error() string {
+	return e.Message
+}
 
 func getGeoid(address string) (string, error) {
 	var geoidResults serializers.GeoCodingResult
@@ -44,7 +53,20 @@ func getGeoid(address string) (string, error) {
 	}
 }
 
+func authenticateRequest(ctx *gin.Context) error {
+	userAuth := ctx.GetHeader("X-RapidAPI-Proxy-Secret")
+	authKey := os.Getenv("X_RAPIDAPI_PROXY_SECRET")
+	if userAuth == authKey {
+		return nil
+	}
+	return &authError{Message: "Invalid authentication!"}
+}
+
 func (h handler) GetScores(ctx *gin.Context) {
+	err := authenticateRequest(ctx)
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusProxyAuthRequired)
+	}
 	address := strings.ReplaceAll(ctx.Query("address"), " ", "%20")
 	if address != "" {
 		var wg sync.WaitGroup
