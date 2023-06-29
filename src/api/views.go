@@ -63,10 +63,10 @@ func authenticateRequest(ctx *gin.Context) error {
 }
 
 func (h handler) GetScores(ctx *gin.Context) {
-	// err := authenticateRequest(ctx)
-	// if err != nil {
-	// 	ctx.AbortWithStatus(http.StatusProxyAuthRequired)
-	// }
+	err := authenticateRequest(ctx)
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusProxyAuthRequired)
+	}
 	address := strings.ReplaceAll(ctx.Query("address"), " ", "%20")
 	if address != "" {
 		var wg sync.WaitGroup
