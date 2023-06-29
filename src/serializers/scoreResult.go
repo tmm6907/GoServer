@@ -9,6 +9,6 @@ type ScoreResult struct {
 	RegionalTransitUsagePercentage float64 `json:"regionalTransitUsagePercentage"`
 	RegionalTransitUsage           uint64  `json:"regionalTransitUsage"`
 	RegionalBikeRidership          uint64  `json:"regionalBikeRidership"`
-	TransitScore                   uint8   `json:"transitScore"`
-	BikeScore                      uint8   `json:"bikeScore"`
+	// TransitScore                   uint8   `json:"transitScore"`
+	// BikeScore                      uint8   `json:"bikeScore"`
 }

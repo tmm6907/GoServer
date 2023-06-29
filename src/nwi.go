@@ -19,6 +19,7 @@ const ZIPCODE_FILE = "Zip_To_CBSA.csv"
 const DB_FILE = "NWI.csv"
 const CBSA_TRANSIT_FILE = "CBSA_Public_Transit_Usage.csv"
 const CBSA_BIKE_FILE = "CBSA_Bicylce_Ridership.csv"
+const POPULATION_FILE = "2022_CBSA_POP_ESTIMATE.csv"
 const INSERT_LIMIT = 100
 
 type DBEntry interface {
@@ -49,7 +50,15 @@ func addTransitUsage(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 			fmt.Println(err)
 			usageEstimate = 0
 		}
-		db.Model(&models.CBSA{}).Where("CBSA = ?", uint32(cbsa_id)).Updates(models.CBSA{PublicTansitEstimate: uint64(usageEstimate)})
+		usagePercentage, err := strconv.ParseFloat(record[2], 64)
+		if err != nil {
+			fmt.Println(err)
+			usagePercentage = 0
+		}
+		db.Model(&models.CBSA{}).Where(&models.CBSA{CBSA: uint32(cbsa_id)}).Updates(models.CBSA{
+			PublicTansitPercentage: usagePercentage,
+			PublicTansitEstimate:   uint64(usageEstimate),
+		})
 	}
 
 }
@@ -89,7 +98,6 @@ func addTransitScores(db *gorm.DB, wg *sync.WaitGroup) {
 
 func addBikeRidership(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 	defer wg.Done()
-	var cbsa models.CBSA
 	for _, record := range database {
 		cbsa_id, err := strconv.ParseUint(record[3], 10, 64)
 		if err != nil {
@@ -102,11 +110,9 @@ func addBikeRidership(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 			fmt.Println(err)
 			usage = 0
 		}
-		if cbsa_result := db.Where(&models.CBSA{CBSA: uint32(cbsa_id)}).First(&cbsa); cbsa_result.Error != nil {
+		if cbsa_result := db.Where(&models.CBSA{CBSA: uint32(cbsa_id)}).Updates(&models.CBSA{BikeRidership: usage}); cbsa_result.Error != nil {
 			fmt.Println(cbsa_result.Error)
 		}
-		cbsa.BikeRidership = usage
-		db.Save(&cbsa)
 	}
 
 }
@@ -117,6 +123,27 @@ func createZipToCBSA(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 	if result.Error != nil {
 		log.Println(result.Error)
 	}
+}
+
+func addCBSAPopulation(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for _, record := range database {
+		cbsa_id, err := strconv.ParseUint(record[0], 10, 64)
+		if err != nil {
+			fmt.Println(err)
+			cbsa_id = 99999
+		}
+
+		pop, err := strconv.ParseUint(record[8], 10, 64)
+		if err != nil {
+			fmt.Println(err)
+			pop = 0
+		}
+		if cbsa_result := db.Model(&models.CBSA{}).Where(&models.CBSA{CBSA: uint32(cbsa_id)}).Updates(&models.CBSA{Population: pop}); cbsa_result.Error != nil {
+			fmt.Println(cbsa_result.Error)
+		}
+	}
+
 }
 
 func repopulateGroupTracts(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
@@ -153,26 +180,26 @@ func init_db(url string) (*gorm.DB, error) {
 }
 
 func main() {
-	// gin.SetMode(gin.ReleaseMode)
+	gin.SetMode(gin.ReleaseMode)
 	dbUser := os.Getenv("DB_USER")
 	if dbUser == "" {
-		log.Fatalf("Fatal Error in connect_unix.go: %s environment variable not set.", dbUser)
+		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", dbUser)
 	}
 	dbPass := os.Getenv("DB_PASS")
 	if dbPass == "" {
-		log.Fatalf("Fatal Error in connect_unix.go: %s environment variable not set.", dbPass)
+		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", dbPass)
 	}
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
-		log.Fatalf("Fatal Error in connect_unix.go: %s environment variable not set.", dbName)
+		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", dbName)
 	}
 	connectionName := os.Getenv("CLOUD_SQL_CONNECTION_NAME")
 	if connectionName == "" {
-		log.Fatalf("Fatal Error in connect_unix.go: %s environment variable not set.", connectionName)
+		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", connectionName)
 	}
 	port := os.Getenv("INTERNAL_PORT")
 	if port == "" {
-		log.Fatalf("Fatal Error in connect_unix.go: %s environment variable not set.", port)
+		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", port)
 	}
 	// "/cloudsql/"+connectionName,
 	dbUrl := fmt.Sprintf(
@@ -187,7 +214,7 @@ func main() {
 		log.Fatalln(err)
 	}
 	// var wg sync.WaitGroup
-	// wg.Add(1)
+	// wg.Add(2)
 
 	// db_file, err := api.ReadData(DB_FILE)
 	// if err != nil {
@@ -214,6 +241,11 @@ func main() {
 	// go createZipToCBSA(db, zip_file, &wg)
 
 	// go addTransitScores(db, &wg)
+	// popFile, err := api.ReadData(POPULATION_FILE)
+	// if err != nil {
+	// 	log.Fatalf("Error, file %s could not be read", zip_file)
+	// }
+	// go addCBSAPopulation(db, popFile, &wg)
 	router := gin.Default()
 	api.RegisterRoutes(router, db)
 	router.GET("/", func(ctx *gin.Context) {

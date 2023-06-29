@@ -128,12 +128,10 @@ func CreateTractGroups(database [][]string) []models.BlockGroup {
 		}
 		_csa, err := strconv.ParseFloat(record[csa], 64)
 		if err != nil {
-			fmt.Println(err)
 			_csa = 0
 		}
 		_cbsa, err := strconv.ParseFloat(record[cbsa], 32)
 		if err != nil {
-			fmt.Println(err)
 			_cbsa = 0
 		}
 		ac_t, err := strconv.ParseFloat(record[acTotal], 64)

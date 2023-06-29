@@ -63,10 +63,10 @@ func authenticateRequest(ctx *gin.Context) error {
 }
 
 func (h handler) GetScores(ctx *gin.Context) {
-	err := authenticateRequest(ctx)
-	if err != nil {
-		ctx.AbortWithStatus(http.StatusProxyAuthRequired)
-	}
+	// err := authenticateRequest(ctx)
+	// if err != nil {
+	// 	ctx.AbortWithStatus(http.StatusProxyAuthRequired)
+	// }
 	address := strings.ReplaceAll(ctx.Query("address"), " ", "%20")
 	if address != "" {
 		var wg sync.WaitGroup
@@ -90,7 +90,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 			ctx.AbortWithError(http.StatusNotFound, err)
 			return
 		}
-		if result := h.DB.Where(&models.Rank{Geoid: geoid10}).First(&score); result.Error != nil {
+		if result := h.DB.Where("geoid=?", geoid10).First(&score); result.Error != nil {
 			ctx.AbortWithError(http.StatusNotFound, result.Error)
 			return
 		}
@@ -105,8 +105,6 @@ func (h handler) GetScores(ctx *gin.Context) {
 			RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
 			RegionalTransitUsage:           cbsa.PublicTansitEstimate,
 			RegionalBikeRidership:          cbsa.BikeRidership,
-			TransitScore:                   score.TransitScore,
-			BikeScore:                      score.BikeScore,
 		}
 		ctx.JSON(http.StatusOK, &result)
 		wg.Wait()
@@ -148,7 +146,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 		for i := range scores {
 			var csa models.CSA
 			var cbsa models.CBSA
-			if csa_result := h.DB.Where(&models.CBSA{Geoid: scores[i].Geoid}).First(&csa); csa_result.Error != nil {
+			if csa_result := h.DB.Where(&models.CSA{Geoid: scores[i].Geoid}).First(&csa); csa_result.Error != nil {
 				csa.CSA_name = ""
 			}
 			if cbsa_result := h.DB.Where(&models.CBSA{Geoid: scores[i].Geoid}).First(&cbsa); cbsa_result.Error != nil {
@@ -165,8 +163,6 @@ func (h handler) GetScores(ctx *gin.Context) {
 					RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
 					RegionalTransitUsage:           cbsa.PublicTansitEstimate,
 					RegionalBikeRidership:          cbsa.BikeRidership,
-					TransitScore:                   scores[i].TransitScore,
-					BikeScore:                      scores[i].BikeScore,
 				},
 			)
 		}
