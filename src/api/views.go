@@ -108,7 +108,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 				RegionalBikeRidership:          cbsa.BikeRidership,
 				Format:                         format,
 			}
-			ctx.JSON(http.StatusOK, &result)
+			ctx.XML(http.StatusOK, &result)
 		default:
 			ctx.AbortWithError(http.StatusBadRequest, fmt.Errorf("views.go: unknown parameter: %s", format))
 		}
@@ -205,7 +205,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 					},
 				)
 			}
-			ctx.JSON(http.StatusOK, &results)
+			ctx.XML(http.StatusOK, &results)
 		}
 
 	}
