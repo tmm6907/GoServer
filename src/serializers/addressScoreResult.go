@@ -11,6 +11,7 @@ type AddressScoreResult struct {
 	// TransitScore                   uint8   `json:"transitScore"`
 	// BikeScore                      uint8   `json:"bikeScore"`
 	SearchedAddress string `json:"searchedAddress"`
+	Format          string `json:"format"`
 }
 
 type AddressScoreResultXML struct {
@@ -23,4 +24,5 @@ type AddressScoreResultXML struct {
 	// TransitScore                   uint8   `xml:"transitScore"`
 	// BikeScore                      uint8   `xml:"bikeScore"`
 	SearchedAddress string `xml:"searchedAddress"`
+	Format          string `xml:"format"`
 }

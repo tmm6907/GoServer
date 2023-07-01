@@ -11,8 +11,7 @@ type ScoreResult struct {
 	RegionalTransitUsagePercentage float64 `json:"regionalTransitUsagePercentage"`
 	RegionalTransitUsage           uint64  `json:"regionalTransitUsage"`
 	RegionalBikeRidership          uint64  `json:"regionalBikeRidership"`
-	// TransitScore                   uint8   `json:"transitScore"`
-	// BikeScore                      uint8   `json:"bikeScore"`
+	Format                         string  `json:"format"`
 }
 
 type ScoreResultXML struct {
@@ -25,6 +24,5 @@ type ScoreResultXML struct {
 	RegionalTransitUsagePercentage float64  `xml:"regionalTransitUsagePercentage"`
 	RegionalTransitUsage           uint64   `xml:"regionalTransitUsage"`
 	RegionalBikeRidership          uint64   `xml:"regionalBikeRidership"`
-	// TransitScore                   uint8   `xml:"transitScore"`
-	// BikeScore                      uint8   `xml:"bikeScore"`
+	Format                         string   `xml:"format"`
 }
