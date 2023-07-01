@@ -12,6 +12,7 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"nwi.io/nwi/api"
+	"nwi.io/nwi/middleware"
 	"nwi.io/nwi/models"
 )
 
@@ -247,6 +248,7 @@ func main() {
 	// }
 	// go addCBSAPopulation(db, popFile, &wg)
 	router := gin.Default()
+	router.Use(middleware.AuthenticateRequest())
 	api.RegisterRoutes(router, db)
 	router.GET("/", func(ctx *gin.Context) {
 		ctx.JSON(200, gin.H{

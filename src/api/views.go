@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -53,20 +52,7 @@ func getGeoid(address string) (string, error) {
 	}
 }
 
-func authenticateRequest(ctx *gin.Context) error {
-	userAuth := ctx.GetHeader("X-RapidAPI-Proxy-Secret")
-	authKey := os.Getenv("X_RAPIDAPI_PROXY_SECRET")
-	if userAuth == authKey {
-		return nil
-	}
-	return &authError{Message: "Invalid authentication!"}
-}
-
 func (h handler) GetScores(ctx *gin.Context) {
-	err := authenticateRequest(ctx)
-	if err != nil {
-		ctx.AbortWithStatus(http.StatusProxyAuthRequired)
-	}
 	address := strings.ReplaceAll(ctx.Query("address"), " ", "%20")
 	if address != "" {
 		var wg sync.WaitGroup
