@@ -93,6 +93,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 				RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
 				RegionalTransitUsage:           cbsa.PublicTansitEstimate,
 				RegionalBikeRidership:          cbsa.BikeRidership,
+				Format:                         format,
 			}
 			ctx.JSON(http.StatusOK, &result)
 		case "xml":
@@ -103,6 +104,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 				RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
 				RegionalTransitUsage:           cbsa.PublicTansitEstimate,
 				RegionalBikeRidership:          cbsa.BikeRidership,
+				Format:                         format,
 			}
 			ctx.JSON(http.StatusOK, &result)
 		default:
@@ -168,6 +170,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 						RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
 						RegionalTransitUsage:           cbsa.PublicTansitEstimate,
 						RegionalBikeRidership:          cbsa.BikeRidership,
+						Format:                         format,
 					},
 				)
 			}
@@ -195,6 +198,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 						RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
 						RegionalTransitUsage:           cbsa.PublicTansitEstimate,
 						RegionalBikeRidership:          cbsa.BikeRidership,
+						Format:                         format,
 					},
 				)
 			}
