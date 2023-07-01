@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"log"
@@ -98,6 +99,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 			ctx.JSON(http.StatusOK, &result)
 		case "xml":
 			result := serializers.AddressScoreResultXML{
+				XMLName:                        xml.Name{Space: "result"},
 				Geoid:                          geoid10,
 				NWI:                            score.NWI,
 				SearchedAddress:                ctx.Query("address"),
@@ -190,6 +192,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 				results = append(
 					results,
 					serializers.ScoreResultXML{
+						XMLName:                        xml.Name{Space: "result"},
 						ID:                             i + offset,
 						Geoid:                          scores[i].Geoid,
 						CSA_name:                       csa.CSA_name,

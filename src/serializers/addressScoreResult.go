@@ -8,10 +8,8 @@ type AddressScoreResult struct {
 	RegionalTransitUsagePercentage float64 `json:"regionalTransitUsagePercentage"`
 	RegionalTransitUsage           uint64  `json:"regionalTransitUsage"`
 	RegionalBikeRidership          uint64  `json:"regionalBikeRidership"`
-	// TransitScore                   uint8   `json:"transitScore"`
-	// BikeScore                      uint8   `json:"bikeScore"`
-	SearchedAddress string `json:"searchedAddress"`
-	Format          string `json:"format"`
+	SearchedAddress                string  `json:"searchedAddress"`
+	Format                         string  `json:"format"`
 }
 
 type AddressScoreResultXML struct {
@@ -21,8 +19,6 @@ type AddressScoreResultXML struct {
 	RegionalTransitUsagePercentage float64  `xml:"regionalTransitUsagePercentage"`
 	RegionalTransitUsage           uint64   `xml:"regionalTransitUsage"`
 	RegionalBikeRidership          uint64   `xml:"regionalBikeRidership"`
-	// TransitScore                   uint8   `xml:"transitScore"`
-	// BikeScore                      uint8   `xml:"bikeScore"`
-	SearchedAddress string `xml:"searchedAddress"`
-	Format          string `xml:"format"`
+	SearchedAddress                string   `xml:"searchedAddress"`
+	Format                         string   `xml:"format"`
 }
