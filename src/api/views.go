@@ -84,15 +84,31 @@ func (h handler) GetScores(ctx *gin.Context) {
 			ctx.AbortWithError(http.StatusNotFound, result.Error)
 			return
 		}
-		result := serializers.AddressScoreResult{
-			Geoid:                          geoid10,
-			NWI:                            score.NWI,
-			SearchedAddress:                ctx.Query("address"),
-			RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
-			RegionalTransitUsage:           cbsa.PublicTansitEstimate,
-			RegionalBikeRidership:          cbsa.BikeRidership,
+		switch format := ctx.Query("format"); format {
+		case "json":
+			result := serializers.AddressScoreResult{
+				Geoid:                          geoid10,
+				NWI:                            score.NWI,
+				SearchedAddress:                ctx.Query("address"),
+				RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
+				RegionalTransitUsage:           cbsa.PublicTansitEstimate,
+				RegionalBikeRidership:          cbsa.BikeRidership,
+			}
+			ctx.JSON(http.StatusOK, &result)
+		case "xml":
+			result := serializers.AddressScoreResultXML{
+				Geoid:                          geoid10,
+				NWI:                            score.NWI,
+				SearchedAddress:                ctx.Query("address"),
+				RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
+				RegionalTransitUsage:           cbsa.PublicTansitEstimate,
+				RegionalBikeRidership:          cbsa.BikeRidership,
+			}
+			ctx.JSON(http.StatusOK, &result)
+		default:
+			ctx.AbortWithError(http.StatusBadRequest, fmt.Errorf("views.go: unknown parameter: %s", format))
 		}
-		ctx.JSON(http.StatusOK, &result)
+
 		wg.Wait()
 	} else {
 		var scores []models.Rank
@@ -128,30 +144,62 @@ func (h handler) GetScores(ctx *gin.Context) {
 				scores = append(scores, zipScores...)
 			}
 		}
-		results := serializers.ScoreResults{}
-		for i := range scores {
-			var csa models.CSA
-			var cbsa models.CBSA
-			if csa_result := h.DB.Where(&models.CSA{Geoid: scores[i].Geoid}).First(&csa); csa_result.Error != nil {
-				csa.CSA_name = ""
+		switch format := ctx.Query("format"); format {
+		case "json":
+			results := []serializers.ScoreResult{}
+			for i := range scores {
+				var csa models.CSA
+				var cbsa models.CBSA
+				if csa_result := h.DB.Where(&models.CSA{Geoid: scores[i].Geoid}).First(&csa); csa_result.Error != nil {
+					csa.CSA_name = ""
+				}
+				if cbsa_result := h.DB.Where(&models.CBSA{Geoid: scores[i].Geoid}).First(&cbsa); cbsa_result.Error != nil {
+					cbsa.CBSA_name = ""
+				}
+
+				results = append(
+					results,
+					serializers.ScoreResult{
+						ID:                             i + offset,
+						Geoid:                          scores[i].Geoid,
+						CSA_name:                       csa.CSA_name,
+						CBSA_name:                      cbsa.CBSA_name,
+						NWI:                            scores[i].NWI,
+						RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
+						RegionalTransitUsage:           cbsa.PublicTansitEstimate,
+						RegionalBikeRidership:          cbsa.BikeRidership,
+					},
+				)
 			}
-			if cbsa_result := h.DB.Where(&models.CBSA{Geoid: scores[i].Geoid}).First(&cbsa); cbsa_result.Error != nil {
-				cbsa.CBSA_name = ""
+			ctx.JSON(http.StatusOK, &results)
+		case "xml":
+			results := []serializers.ScoreResultXML{}
+			for i := range scores {
+				var csa models.CSA
+				var cbsa models.CBSA
+				if csa_result := h.DB.Where(&models.CSA{Geoid: scores[i].Geoid}).First(&csa); csa_result.Error != nil {
+					csa.CSA_name = ""
+				}
+				if cbsa_result := h.DB.Where(&models.CBSA{Geoid: scores[i].Geoid}).First(&cbsa); cbsa_result.Error != nil {
+					cbsa.CBSA_name = ""
+				}
+
+				results = append(
+					results,
+					serializers.ScoreResultXML{
+						ID:                             i + offset,
+						Geoid:                          scores[i].Geoid,
+						CSA_name:                       csa.CSA_name,
+						CBSA_name:                      cbsa.CBSA_name,
+						NWI:                            scores[i].NWI,
+						RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
+						RegionalTransitUsage:           cbsa.PublicTansitEstimate,
+						RegionalBikeRidership:          cbsa.BikeRidership,
+					},
+				)
 			}
-			results = append(
-				results,
-				serializers.ScoreResult{
-					ID:                             i + offset,
-					Geoid:                          scores[i].Geoid,
-					CSA_name:                       csa.CSA_name,
-					CBSA_name:                      cbsa.CBSA_name,
-					NWI:                            scores[i].NWI,
-					RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
-					RegionalTransitUsage:           cbsa.PublicTansitEstimate,
-					RegionalBikeRidership:          cbsa.BikeRidership,
-				},
-			)
+			ctx.JSON(http.StatusOK, &results)
 		}
-		ctx.JSON(http.StatusOK, &results)
+
 	}
 }
