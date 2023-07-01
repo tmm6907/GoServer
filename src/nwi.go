@@ -249,6 +249,7 @@ func main() {
 	// go addCBSAPopulation(db, popFile, &wg)
 	router := gin.Default()
 	router.Use(middleware.AuthenticateRequest())
+	router.Use(middleware.IPWhiteListMiddleware(middleware.IPWhitelist))
 	api.RegisterRoutes(router, db)
 	router.GET("/", func(ctx *gin.Context) {
 		ctx.JSON(200, gin.H{
