@@ -21,6 +21,11 @@ type authError struct {
 	Message string
 }
 
+type XMLResults struct {
+	XMLName xml.Name                     `xml:"results"`
+	Scores  []serializers.ScoreResultXML `xml:"scores"`
+}
+
 func (e *authError) Error() string {
 	return e.Message
 }
@@ -178,7 +183,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 			}
 			ctx.JSON(http.StatusOK, &results)
 		case "xml":
-			results := []serializers.ScoreResultXML{}
+			resultScores := []serializers.ScoreResultXML{}
 			for i := range scores {
 				var csa models.CSA
 				var cbsa models.CBSA
@@ -189,8 +194,8 @@ func (h handler) GetScores(ctx *gin.Context) {
 					cbsa.CBSA_name = ""
 				}
 
-				results = append(
-					results,
+				resultScores = append(
+					resultScores,
 					serializers.ScoreResultXML{
 						XMLName:                        xml.Name{Space: "result"},
 						ID:                             i + offset,
@@ -205,6 +210,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 					},
 				)
 			}
+			results := XMLResults{Scores: resultScores}
 			ctx.XML(http.StatusOK, &results)
 		}
 
