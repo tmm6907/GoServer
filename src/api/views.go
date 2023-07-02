@@ -142,7 +142,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 				return
 			}
 		} else {
-			if result := h.DB.Limit(query.Limit).Offset(query.Offset).Where("zipcode=?", zipcode).Find(&res); result.Error != nil {
+			if result := h.DB.Where("zipcode=?", zipcode).Find(&res); result.Error != nil {
 				ctx.AbortWithError(http.StatusNotFound, result.Error)
 				return
 			}
@@ -213,6 +213,6 @@ func (h handler) GetScores(ctx *gin.Context) {
 			results := XMLResults{Scores: resultScores}
 			ctx.XML(http.StatusOK, &results)
 		}
-
+		ctx.AbortWithError(http.StatusBadRequest, fmt.Errorf("missing format paramater"))
 	}
 }
