@@ -146,7 +146,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 				return
 			}
 			for _, item := range res {
-				if result := h.DB.Limit(limit).Offset(offset).Where(&models.CBSA{CBSA: item.CBSA}).Model(&models.Rank{}).Select("*").Joins("left join cbsas on cbsas.geoid = ranks.geoid").Scan(&zipScores); result.Error != nil {
+				if result := h.DB.Limit(limit).Offset(offset).Where("cbsas.cbsa = ?", item.CBSA).Model(&models.Rank{}).Select("*").Joins("left join cbsas on cbsas.geoid = ranks.geoid").Scan(&zipScores); result.Error != nil {
 					fmt.Println(result.Error)
 				}
 				scores = append(scores, zipScores...)
