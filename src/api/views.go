@@ -17,17 +17,9 @@ import (
 	"nwi.io/nwi/serializers"
 )
 
-type authError struct {
-	Message string
-}
-
 type XMLResults struct {
 	XMLName xml.Name                     `xml:"results"`
 	Scores  []serializers.ScoreResultXML `xml:"scores"`
-}
-
-func (e *authError) Error() string {
-	return e.Message
 }
 
 func getGeoid(address string) (string, error) {
@@ -60,7 +52,16 @@ func getGeoid(address string) (string, error) {
 
 func (h handler) GetScores(ctx *gin.Context) {
 	address := strings.ReplaceAll(ctx.Query("address"), " ", "%20")
-	if address != "" {
+	zipcode := ctx.Query("zipcode")
+	format := ctx.Query("format")
+	if zipcode != "" && address != "" {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+	}
+	if zipcode == "" && address == "" {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+	}
+	switch {
+	case address != "":
 		var wg sync.WaitGroup
 		wg.Add(1)
 		geoid := make(chan string)
@@ -82,7 +83,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 			ctx.AbortWithError(http.StatusNotFound, err)
 			return
 		}
-		if result := h.DB.Where("geoid=?", geoid10).First(&score); result.Error != nil {
+		if result := h.DB.Where(&models.Rank{Geoid: geoid10}).First(&score); result.Error != nil {
 			ctx.AbortWithError(http.StatusNotFound, result.Error)
 			return
 		}
@@ -90,7 +91,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 			ctx.AbortWithError(http.StatusNotFound, result.Error)
 			return
 		}
-		switch format := ctx.Query("format"); format {
+		switch format {
 		case "json":
 			result := serializers.AddressScoreResult{
 				Geoid:                          geoid10,
@@ -119,11 +120,13 @@ func (h handler) GetScores(ctx *gin.Context) {
 		}
 
 		wg.Wait()
-	} else {
+	case zipcode != "":
 		var scores []models.Rank
 		var zipScores []models.Rank
 		var res []models.ZipCode
-		zipcode := ctx.Query("zipcode")
+		if len(zipcode) > 5 {
+			ctx.AbortWithStatus(http.StatusBadRequest)
+		}
 		limit, limit_err := strconv.Atoi(ctx.Query("limit"))
 		if limit_err != nil {
 			limit = 50
@@ -132,28 +135,24 @@ func (h handler) GetScores(ctx *gin.Context) {
 		if offset_err != nil {
 			offset = 0
 		}
-		query := serializers.ScoresQuery{
-			Limit:  limit,
-			Offset: offset,
-		}
 		if zipcode == "" {
-			if result := h.DB.Limit(query.Limit).Offset(query.Offset).Find(&scores); result.Error != nil {
+			if result := h.DB.Limit(limit).Offset(offset).Find(&scores); result.Error != nil {
 				ctx.AbortWithError(http.StatusNotFound, result.Error)
 				return
 			}
 		} else {
-			if result := h.DB.Where("zipcode=?", zipcode).Find(&res); result.Error != nil {
+			if result := h.DB.Where(&models.ZipCode{Zipcode: zipcode}).Find(&res); result.Error != nil {
 				ctx.AbortWithError(http.StatusNotFound, result.Error)
 				return
 			}
 			for _, item := range res {
-				if result := h.DB.Limit(query.Limit).Offset(query.Offset).Where("cbsa=?", item.CBSA).Model(&models.Rank{}).Select("*").Joins("left join cbsas on cbsas.geoid = ranks.geoid").Scan(&zipScores); result.Error != nil {
+				if result := h.DB.Limit(limit).Offset(offset).Where(&models.CBSA{CBSA: item.CBSA}).Model(&models.Rank{}).Select("*").Joins("left join cbsas on cbsas.geoid = ranks.geoid").Scan(&zipScores); result.Error != nil {
 					fmt.Println(result.Error)
 				}
 				scores = append(scores, zipScores...)
 			}
 		}
-		switch format := ctx.Query("format"); format {
+		switch format {
 		case "json":
 			results := []serializers.ScoreResult{}
 			for i := range scores {
@@ -213,6 +212,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 			results := XMLResults{Scores: resultScores}
 			ctx.XML(http.StatusOK, &results)
 		}
-		ctx.AbortWithError(http.StatusBadRequest, fmt.Errorf("missing format paramater"))
+	default:
+		ctx.AbortWithError(http.StatusBadRequest, fmt.Errorf("missing required paramater"))
 	}
 }
