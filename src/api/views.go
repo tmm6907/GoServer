@@ -17,6 +17,18 @@ import (
 	"nwi.io/nwi/serializers"
 )
 
+// CACHE.Put(1, 1)
+// 	CACHE.Put(2, 2)
+// 	fmt.Println(CACHE.Get(1)) // Output: 1
+
+// 	CACHE.Put(3, 3)
+// 	fmt.Println(CACHE.Get(2)) // Output: -1
+
+// 	CACHE.Put(4, 4)
+// 	fmt.Println(CACHE.Get(1)) // Output: -1
+// 	fmt.Println(CACHE.Get(3)) // Output: 3
+// 	fmt.Println(CACHE.Get(4)) // Output: 4
+
 type XMLResults struct {
 	XMLName xml.Name                     `xml:"results"`
 	Scores  []serializers.ScoreResultXML `xml:"scores"`
@@ -116,14 +128,14 @@ func (h handler) GetScores(ctx *gin.Context) {
 			}
 			ctx.XML(http.StatusOK, &result)
 		default:
-			ctx.AbortWithError(http.StatusBadRequest, fmt.Errorf("views.go: unknown parameter: %s", format))
+			ctx.AbortWithStatus(http.StatusBadRequest)
 		}
 
 		wg.Wait()
 	case zipcode != "":
-		var scores []models.Rank
 		var zipScores []models.Rank
 		var res []models.ZipCode
+		var scores []models.Rank
 		if len(zipcode) > 5 {
 			ctx.AbortWithStatus(http.StatusBadRequest)
 		}
@@ -145,74 +157,99 @@ func (h handler) GetScores(ctx *gin.Context) {
 				ctx.AbortWithError(http.StatusNotFound, result.Error)
 				return
 			}
+			var subwg sync.WaitGroup
+			var mu sync.RWMutex
 			for _, item := range res {
-				if result := h.DB.Limit(limit).Offset(offset).Where("cbsas.cbsa = ?", item.CBSA).Model(&models.Rank{}).Select("*").Joins("left join cbsas on cbsas.geoid = ranks.geoid").Scan(&zipScores); result.Error != nil {
-					fmt.Println(result.Error)
-				}
-				scores = append(scores, zipScores...)
+				subwg.Add(1)
+				go func(item models.ZipCode) {
+					defer subwg.Done()
+					if result := h.DB.Limit(limit).Offset(offset).Where("cbsas.cbsa = ?", item.CBSA).Model(&models.Rank{}).Select("*").Joins("left join cbsas on cbsas.geoid = ranks.geoid").Scan(&zipScores); result.Error != nil {
+						fmt.Println(result.Error)
+					}
+					mu.Lock()
+					scores = append(scores, zipScores...)
+					mu.Unlock()
+				}(item)
 			}
+			subwg.Wait()
 		}
 		switch format {
 		case "json":
+			var subwg sync.WaitGroup
+			var mu sync.RWMutex
 			results := []serializers.ScoreResult{}
 			for i := range scores {
-				var csa models.CSA
-				var cbsa models.CBSA
-				if csa_result := h.DB.Where(&models.CSA{Geoid: scores[i].Geoid}).First(&csa); csa_result.Error != nil {
-					csa.CSA_name = ""
-				}
-				if cbsa_result := h.DB.Where(&models.CBSA{Geoid: scores[i].Geoid}).First(&cbsa); cbsa_result.Error != nil {
-					cbsa.CBSA_name = ""
-				}
-
-				results = append(
-					results,
-					serializers.ScoreResult{
-						ID:                             i + offset,
-						Geoid:                          scores[i].Geoid,
-						CSA_name:                       csa.CSA_name,
-						CBSA_name:                      cbsa.CBSA_name,
-						NWI:                            scores[i].NWI,
-						RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
-						RegionalTransitUsage:           cbsa.PublicTansitEstimate,
-						RegionalBikeRidership:          cbsa.BikeRidership,
-						Format:                         format,
-					},
-				)
+				subwg.Add(1)
+				go func(i int) {
+					defer subwg.Done()
+					var csa models.CSA
+					var cbsa models.CBSA
+					if csa_result := h.DB.Where(&models.CSA{Geoid: scores[i].Geoid}).First(&csa); csa_result.Error != nil {
+						csa.CSA_name = ""
+					}
+					if cbsa_result := h.DB.Where(&models.CBSA{Geoid: scores[i].Geoid}).First(&cbsa); cbsa_result.Error != nil {
+						cbsa.CBSA_name = ""
+					}
+					mu.Lock()
+					results = append(
+						results,
+						serializers.ScoreResult{
+							ID:                             i + offset,
+							Geoid:                          scores[i].Geoid,
+							CSA_name:                       csa.CSA_name,
+							CBSA_name:                      cbsa.CBSA_name,
+							NWI:                            scores[i].NWI,
+							RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
+							RegionalTransitUsage:           cbsa.PublicTansitEstimate,
+							RegionalBikeRidership:          cbsa.BikeRidership,
+							Format:                         format,
+						},
+					)
+					mu.Unlock()
+				}(i)
+				subwg.Wait()
 			}
 			ctx.JSON(http.StatusOK, &results)
 		case "xml":
+			var subwg sync.WaitGroup
+			var mu sync.RWMutex
 			resultScores := []serializers.ScoreResultXML{}
 			for i := range scores {
-				var csa models.CSA
-				var cbsa models.CBSA
-				if csa_result := h.DB.Where(&models.CSA{Geoid: scores[i].Geoid}).First(&csa); csa_result.Error != nil {
-					csa.CSA_name = ""
-				}
-				if cbsa_result := h.DB.Where(&models.CBSA{Geoid: scores[i].Geoid}).First(&cbsa); cbsa_result.Error != nil {
-					cbsa.CBSA_name = ""
-				}
-
-				resultScores = append(
-					resultScores,
-					serializers.ScoreResultXML{
-						XMLName:                        xml.Name{Space: "result"},
-						ID:                             i + offset,
-						Geoid:                          scores[i].Geoid,
-						CSA_name:                       csa.CSA_name,
-						CBSA_name:                      cbsa.CBSA_name,
-						NWI:                            scores[i].NWI,
-						RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
-						RegionalTransitUsage:           cbsa.PublicTansitEstimate,
-						RegionalBikeRidership:          cbsa.BikeRidership,
-						Format:                         format,
-					},
-				)
+				subwg.Add(1)
+				go func(i int) {
+					defer subwg.Done()
+					var csa models.CSA
+					var cbsa models.CBSA
+					if csa_result := h.DB.Where(&models.CSA{Geoid: scores[i].Geoid}).First(&csa); csa_result.Error != nil {
+						csa.CSA_name = ""
+					}
+					if cbsa_result := h.DB.Where(&models.CBSA{Geoid: scores[i].Geoid}).First(&cbsa); cbsa_result.Error != nil {
+						cbsa.CBSA_name = ""
+					}
+					mu.Lock()
+					resultScores = append(
+						resultScores,
+						serializers.ScoreResultXML{
+							XMLName:                        xml.Name{Space: "result"},
+							ID:                             i + offset,
+							Geoid:                          scores[i].Geoid,
+							CSA_name:                       csa.CSA_name,
+							CBSA_name:                      cbsa.CBSA_name,
+							NWI:                            scores[i].NWI,
+							RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
+							RegionalTransitUsage:           cbsa.PublicTansitEstimate,
+							RegionalBikeRidership:          cbsa.BikeRidership,
+							Format:                         format,
+						},
+					)
+					mu.Unlock()
+				}(i)
+				subwg.Wait()
 			}
 			results := XMLResults{Scores: resultScores}
 			ctx.XML(http.StatusOK, &results)
 		}
 	default:
-		ctx.AbortWithError(http.StatusBadRequest, fmt.Errorf("missing required paramater"))
+		ctx.AbortWithStatus(http.StatusBadRequest)
 	}
 }

@@ -7,12 +7,12 @@ import (
 	"strconv"
 	"sync"
 
+	"container/list"
+
 	"github.com/gin-gonic/gin"
-	_ "github.com/go-sql-driver/mysql"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"nwi.io/nwi/api"
-	"nwi.io/nwi/middleware"
 	"nwi.io/nwi/models"
 )
 
@@ -25,6 +25,52 @@ const INSERT_LIMIT = 100
 
 type DBEntry interface {
 	models.BlockGroup | models.ZipCode
+}
+
+type LRUCache struct {
+	capacity int
+	cache    map[string]*list.Element
+	lruList  *list.List
+}
+
+type CacheItem struct {
+	key   string
+	value interface{}
+}
+
+var CACHE = NewLRUCache(2048)
+
+func NewLRUCache(capacity int) *LRUCache {
+	return &LRUCache{
+		capacity: capacity,
+		cache:    make(map[string]*list.Element),
+		lruList:  list.New(),
+	}
+}
+
+func (c *LRUCache) Get(key string) (interface{}, bool) {
+	if elem, ok := c.cache[key]; ok {
+		c.lruList.MoveToFront(elem)
+		return elem.Value.(*CacheItem).value, true
+	}
+	return -1, false
+}
+
+func (c *LRUCache) Put(key string, value interface{}) {
+	if elem, ok := c.cache[key]; ok {
+		elem.Value.(*CacheItem).value = value
+		c.lruList.MoveToFront(elem)
+	} else {
+		if len(c.cache) >= c.capacity {
+			// Evict the least recently used item
+			last := c.lruList.Back()
+			delete(c.cache, last.Value.(*CacheItem).key)
+			c.lruList.Remove(last)
+		}
+
+		newElem := c.lruList.PushFront(&CacheItem{key, value})
+		c.cache[key] = newElem
+	}
 }
 
 func create_entry[N DBEntry](db *gorm.DB, data []N) *gorm.DB {
@@ -181,7 +227,7 @@ func init_db(url string) (*gorm.DB, error) {
 }
 
 func main() {
-	gin.SetMode(gin.ReleaseMode)
+	// gin.SetMode(gin.ReleaseMode)
 	dbUser := os.Getenv("DB_USER")
 	if dbUser == "" {
 		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", dbUser)
@@ -203,19 +249,21 @@ func main() {
 		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", port)
 	}
 	// "/cloudsql/"+connectionName,
+	// dbUrl := "postgresql://nwi:tPm4XgwY-A9Dllqv6O-7rQ@wiggly-quail-11233.5xj.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full"
 	dbUrl := fmt.Sprintf(
-		"%s:%s@unix(%s)/%s?parseTime=true",
+		"%s:%s@tcp(%s)/%s?parseTime=true",
 		dbUser,
 		dbPass,
-		"/cloudsql/"+connectionName,
+		"localhost",
 		dbName,
 	)
+
 	db, err := init_db(dbUrl)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	// var wg sync.WaitGroup
-	// wg.Add(2)
+	// wg.Add(1)
 
 	// db_file, err := api.ReadData(DB_FILE)
 	// if err != nil {
@@ -244,11 +292,11 @@ func main() {
 	// go addTransitScores(db, &wg)
 	// popFile, err := api.ReadData(POPULATION_FILE)
 	// if err != nil {
-	// 	log.Fatalf("Error, file %s could not be read", zip_file)
+	// 	log.Fatalf("Error, file %s could not be read", popFile)
 	// }
 	// go addCBSAPopulation(db, popFile, &wg)
 	router := gin.Default()
-	router.Use(middleware.AuthenticateRequest())
+	// router.Use(middleware.AuthenticateRequest())
 	// router.Use(middleware.IPWhiteListMiddleware(middleware.IPWhitelist))
 	api.RegisterRoutes(router, db)
 	router.GET("/", func(ctx *gin.Context) {
