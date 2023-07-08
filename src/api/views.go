@@ -5,29 +5,17 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/gin-gonic/gin"
+	"nwi.io/nwi/caches"
 	"nwi.io/nwi/models"
 	"nwi.io/nwi/serializers"
 )
-
-// CACHE.Put(1, 1)
-// 	CACHE.Put(2, 2)
-// 	fmt.Println(CACHE.Get(1)) // Output: 1
-
-// 	CACHE.Put(3, 3)
-// 	fmt.Println(CACHE.Get(2)) // Output: -1
-
-// 	CACHE.Put(4, 4)
-// 	fmt.Println(CACHE.Get(1)) // Output: -1
-// 	fmt.Println(CACHE.Get(3)) // Output: 3
-// 	fmt.Println(CACHE.Get(4)) // Output: 4
 
 type XMLResults struct {
 	XMLName xml.Name                     `xml:"results"`
@@ -63,6 +51,22 @@ func getGeoid(address string) (string, error) {
 }
 
 func (h handler) GetScores(ctx *gin.Context) {
+	url := ctx.Request.URL.RequestURI()
+	cacheResult, ok := caches.CACHE.Get(url)
+	if ok {
+		switch t := reflect.TypeOf(cacheResult); t {
+		case reflect.TypeOf([]serializers.ScoreResult{}), reflect.TypeOf(serializers.AddressScoreResult{}):
+			ctx.JSON(http.StatusOK, &cacheResult)
+			return
+		case reflect.TypeOf(serializers.AddressScoreResultXML{}), reflect.TypeOf(XMLResults{}):
+			ctx.XML(http.StatusOK, &cacheResult)
+			return
+		default:
+			fmt.Println(t)
+			fmt.Println(reflect.TypeOf(XMLResults{}))
+			fmt.Println(ctx.Request.URL.Path)
+		}
+	}
 	address := strings.ReplaceAll(ctx.Query("address"), " ", "%20")
 	zipcode := ctx.Query("zipcode")
 	format := ctx.Query("format")
@@ -77,7 +81,6 @@ func (h handler) GetScores(ctx *gin.Context) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		geoid := make(chan string)
-		start := time.Now()
 		go func() {
 			wg.Done()
 			res, err := getGeoid(address)
@@ -89,8 +92,6 @@ func (h handler) GetScores(ctx *gin.Context) {
 		var score models.Rank
 		var cbsa models.CBSA
 		geoid10, err := strconv.ParseUint(<-geoid, 10, 64)
-		duration := time.Since(start)
-		log.Printf("Geoid: %v took %v to execute. \n", geoid10, duration)
 		if err != nil {
 			ctx.AbortWithError(http.StatusNotFound, err)
 			return
@@ -114,6 +115,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 				RegionalBikeRidership:          cbsa.BikeRidership,
 				Format:                         format,
 			}
+			caches.CACHE.Put(url, result)
 			ctx.JSON(http.StatusOK, &result)
 		case "xml":
 			result := serializers.AddressScoreResultXML{
@@ -126,6 +128,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 				RegionalBikeRidership:          cbsa.BikeRidership,
 				Format:                         format,
 			}
+			caches.CACHE.Put(url, result)
 			ctx.XML(http.StatusOK, &result)
 		default:
 			ctx.AbortWithStatus(http.StatusBadRequest)
@@ -209,6 +212,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 				}(i)
 				subwg.Wait()
 			}
+			caches.CACHE.Put(url, results)
 			ctx.JSON(http.StatusOK, &results)
 		case "xml":
 			var subwg sync.WaitGroup
@@ -247,6 +251,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 				subwg.Wait()
 			}
 			results := XMLResults{Scores: resultScores}
+			caches.CACHE.Put(url, results)
 			ctx.XML(http.StatusOK, &results)
 		}
 	default:
