@@ -251,10 +251,10 @@ func main() {
 	// "/cloudsql/"+connectionName,
 	// dbUrl := "postgresql://nwi:tPm4XgwY-A9Dllqv6O-7rQ@wiggly-quail-11233.5xj.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full"
 	dbUrl := fmt.Sprintf(
-		"%s:%s@tcp(%s)/%s?parseTime=true",
+		"%s:%s@unix(%s)/%s?parseTime=true",
 		dbUser,
 		dbPass,
-		"localhost",
+		"/cloudsql/"+connectionName,
 		dbName,
 	)
 
