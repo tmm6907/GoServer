@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/driver/postgres"
+	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"nwi.io/nwi/api"
 	"nwi.io/nwi/middleware"
@@ -165,7 +165,7 @@ func init_db(url string) (*gorm.DB, error) {
 	// if err != nil {
 	// 	return nil, err
 	// }
-	db, err := gorm.Open(postgres.Open(url))
+	db, err := gorm.Open(mysql.Open(url))
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +184,7 @@ func init_db(url string) (*gorm.DB, error) {
 }
 
 func main() {
-	// gin.SetMode(gin.ReleaseMode)
+	gin.SetMode(gin.ReleaseMode)
 	dbUser := os.Getenv("DB_USER")
 	if dbUser == "" {
 		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", dbUser)
@@ -205,34 +205,34 @@ func main() {
 	if port == "" {
 		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", port)
 	}
-	cockroachDbUser := os.Getenv("COCKROACH_DB_USER")
-	if dbUser == "" {
-		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", dbUser)
-	}
-	cockroachDbPass := os.Getenv("COCKROACH_DB_PASS")
-	if dbPass == "" {
-		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", dbPass)
-	}
-	cockroachDbConnection := os.Getenv("COCKROACH_DB_CONNECTION")
-	if cockroachDbConnection == "" {
-		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", cockroachDbConnection)
-	}
+	// cockroachDbUser := os.Getenv("COCKROACH_DB_USER")
+	// if dbUser == "" {
+	// 	log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", dbUser)
+	// }
+	// cockroachDbPass := os.Getenv("COCKROACH_DB_PASS")
+	// if dbPass == "" {
+	// 	log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", dbPass)
+	// }
+	// cockroachDbConnection := os.Getenv("COCKROACH_DB_CONNECTION")
+	// if cockroachDbConnection == "" {
+	// 	log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", cockroachDbConnection)
+	// }
 
 	// "/cloudsql/"+connectionName,
-	// dbUrl := fmt.Sprintf(
-	// 	"%s:%s@unix(%s)/%s?parseTime=true",
-	// 	dbUser,
-	// 	dbPass,
-	// 	"/cloudsql/"+connectionName,
-	// 	dbName,
-	// )
-
 	dbUrl := fmt.Sprintf(
-		"postgresql://%s:%s@%s?sslmode=verify-full",
-		cockroachDbUser,
-		cockroachDbPass,
-		cockroachDbConnection,
+		"%s:%s@unix(%s)/%s?parseTime=true",
+		dbUser,
+		dbPass,
+		"/cloudsql/"+connectionName,
+		dbName,
 	)
+
+	// dbUrl := fmt.Sprintf(
+	// 	"postgresql://%s:%s@%s?sslmode=verify-full",
+	// 	cockroachDbUser,
+	// 	cockroachDbPass,
+	// 	cockroachDbConnection,
+	// )
 
 	db, err := init_db(dbUrl)
 	if err != nil {
