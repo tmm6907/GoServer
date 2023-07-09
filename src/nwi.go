@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"nwi.io/nwi/api"
 	"nwi.io/nwi/middleware"
@@ -161,7 +161,11 @@ func repopulateGroupTracts(db *gorm.DB, database [][]string, wg *sync.WaitGroup)
 }
 func init_db(url string) (*gorm.DB, error) {
 	// Initialize
-	db, err := gorm.Open(mysql.Open(url))
+	// db, err := gorm.Open(mysql.Open(url))
+	// if err != nil {
+	// 	return nil, err
+	// }
+	db, err := gorm.Open(postgres.Open(url))
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +184,7 @@ func init_db(url string) (*gorm.DB, error) {
 }
 
 func main() {
-	gin.SetMode(gin.ReleaseMode)
+	// gin.SetMode(gin.ReleaseMode)
 	dbUser := os.Getenv("DB_USER")
 	if dbUser == "" {
 		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", dbUser)
@@ -201,13 +205,33 @@ func main() {
 	if port == "" {
 		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", port)
 	}
+	cockroachDbUser := os.Getenv("COCKROACH_DB_USER")
+	if dbUser == "" {
+		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", dbUser)
+	}
+	cockroachDbPass := os.Getenv("COCKROACH_DB_PASS")
+	if dbPass == "" {
+		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", dbPass)
+	}
+	cockroachDbConnection := os.Getenv("COCKROACH_DB_CONNECTION")
+	if cockroachDbConnection == "" {
+		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", cockroachDbConnection)
+	}
+
 	// "/cloudsql/"+connectionName,
+	// dbUrl := fmt.Sprintf(
+	// 	"%s:%s@unix(%s)/%s?parseTime=true",
+	// 	dbUser,
+	// 	dbPass,
+	// 	"/cloudsql/"+connectionName,
+	// 	dbName,
+	// )
+
 	dbUrl := fmt.Sprintf(
-		"%s:%s@unix(%s)/%s?parseTime=true",
-		dbUser,
-		dbPass,
-		"/cloudsql/"+connectionName,
-		dbName,
+		"postgresql://%s:%s@%s?sslmode=verify-full",
+		cockroachDbUser,
+		cockroachDbPass,
+		cockroachDbConnection,
 	)
 
 	db, err := init_db(dbUrl)
@@ -242,6 +266,7 @@ func main() {
 	// go createZipToCBSA(db, zip_file, &wg)
 
 	// go addTransitScores(db, &wg)
+
 	// popFile, err := api.ReadData(POPULATION_FILE)
 	// if err != nil {
 	// 	log.Fatalf("Error, file %s could not be read", popFile)
