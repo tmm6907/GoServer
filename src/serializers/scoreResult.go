@@ -26,3 +26,8 @@ type ScoreResultXML struct {
 	RegionalBikeRidership          uint64   `xml:"regionalBikeRidership"`
 	Format                         string   `xml:"format"`
 }
+
+type XMLResults struct {
+	XMLName xml.Name         `xml:"results"`
+	Scores  []ScoreResultXML `xml:"scores"`
+}

@@ -160,11 +160,6 @@ func repopulateGroupTracts(db *gorm.DB, database [][]string, wg *sync.WaitGroup)
 	}
 }
 func init_db(url string) (*gorm.DB, error) {
-	// Initialize
-	// db, err := gorm.Open(mysql.Open(url))
-	// if err != nil {
-	// 	return nil, err
-	// }
 	db, err := gorm.Open(mysql.Open(url))
 	if err != nil {
 		return nil, err
@@ -220,7 +215,7 @@ func main() {
 
 	// "/cloudsql/"+connectionName,
 	dbUrl := fmt.Sprintf(
-		"%s:%s@unix(%s)/%s?parseTime=true",
+		"%s:%s@tcp(%s)/%s?parseTime=true",
 		dbUser,
 		dbPass,
 		"/cloudsql/"+connectionName,
