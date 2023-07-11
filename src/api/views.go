@@ -100,11 +100,11 @@ func (h handler) GetScores(ctx *gin.Context) {
 		var zipScores []models.Rank
 		var res []models.ZipCode
 		var scores []models.Rank
+		query.SetLimit()
 		if result := h.DB.Where(&models.ZipCode{Zipcode: query.ZipCode}).Find(&res); result.Error != nil {
 			ctx.AbortWithError(http.StatusNotFound, result.Error)
 			return
 		}
-		fmt.Println(len(res))
 		var subwg sync.WaitGroup
 		var mu sync.RWMutex
 		for _, item := range res {

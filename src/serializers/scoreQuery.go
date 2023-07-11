@@ -45,3 +45,8 @@ func (q *ScoreQuery) GetGeoid() (string, error) {
 func (q *ScoreQuery) GetAddress() string {
 	return strings.ReplaceAll(q.Address, " ", "%20")
 }
+func (q *ScoreQuery) SetLimit() {
+	if q.Limit == 0 {
+		q.Limit = 50
+	}
+}

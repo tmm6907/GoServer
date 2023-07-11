@@ -213,7 +213,7 @@ func main() {
 	// 	log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", cockroachDbConnection)
 	// }
 
-	// "/cloudsql/"+connectionName,
+	//
 	dbUrl := fmt.Sprintf(
 		"%s:%s@unix(%s)/%s?parseTime=true",
 		dbUser,
