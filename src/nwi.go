@@ -54,13 +54,6 @@ func main() {
 		dbName,
 	)
 
-	// dbUrl := fmt.Sprintf(
-	// 	"postgresql://%s:%s@%s?sslmode=verify-full",
-	// 	cockroachDbUser,
-	// 	cockroachDbPass,
-	// 	cockroachDbConnection,
-	// )
-
 	gormDB, err := db.InitDB(dbUrl)
 	if err != nil {
 		log.Fatalln(err)
