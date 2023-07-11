@@ -37,6 +37,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 		ctx.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+	query.SetFormat()
 	switch {
 	case query.Address != "":
 		var wg sync.WaitGroup
@@ -47,6 +48,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 			res, err := query.GetGeoid()
 			if err != nil {
 				ctx.AbortWithError(http.StatusNotFound, err)
+				return
 			}
 			geoid <- res
 		}()
@@ -92,7 +94,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 			caches.CACHE.Put(url, result)
 			ctx.XML(http.StatusOK, &result)
 		default:
-			ctx.AbortWithStatus(http.StatusBadRequest)
+
 		}
 
 		wg.Wait()
@@ -199,6 +201,6 @@ func (h handler) GetScores(ctx *gin.Context) {
 			ctx.XML(http.StatusOK, &results)
 		}
 	default:
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		ctx.AbortWithError(http.StatusBadRequest, fmt.Errorf("bad request! make sure all required fields are filled"))
 	}
 }

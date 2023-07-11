@@ -50,3 +50,9 @@ func (q *ScoreQuery) SetLimit() {
 		q.Limit = 50
 	}
 }
+
+func (q *ScoreQuery) SetFormat() {
+	if q.Format == "" {
+		q.Format = "json"
+	}
+}
