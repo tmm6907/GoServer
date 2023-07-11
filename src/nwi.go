@@ -4,15 +4,11 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
-	"sync"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
 	"nwi.io/nwi/api"
+	"nwi.io/nwi/db"
 	"nwi.io/nwi/middleware"
-	"nwi.io/nwi/models"
 )
 
 const ZIPCODE_FILE = "Zip_To_CBSA.csv"
@@ -20,200 +16,36 @@ const DB_FILE = "NWI.csv"
 const CBSA_TRANSIT_FILE = "CBSA_Public_Transit_Usage.csv"
 const CBSA_BIKE_FILE = "CBSA_Bicylce_Ridership.csv"
 const POPULATION_FILE = "2022_CBSA_POP_ESTIMATE.csv"
-const INSERT_LIMIT = 100
 
-type DBEntry interface {
-	models.BlockGroup | models.ZipCode
-}
-
-func create_entry[N DBEntry](db *gorm.DB, data []N) *gorm.DB {
-	for i := 0; i < len(data); i += INSERT_LIMIT {
-		result := db.Create(data[i : i+INSERT_LIMIT])
-		if result.Error != nil {
-			fmt.Println(result.Error)
-		}
-		fmt.Print(result.RowsAffected)
-	}
-	return db
-}
-
-func addTransitUsage(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	for _, record := range database {
-		cbsa_id, err := strconv.ParseUint(record[4], 10, 32)
-		if err != nil {
-			cbsa_id = 99999
-		}
-		usageEstimate, err := strconv.ParseFloat(record[3], 64)
-		if err != nil {
-			fmt.Println(err)
-			usageEstimate = 0
-		}
-		usagePercentage, err := strconv.ParseFloat(record[2], 64)
-		if err != nil {
-			fmt.Println(err)
-			usagePercentage = 0
-		}
-		db.Model(&models.CBSA{}).Where(&models.CBSA{CBSA: uint32(cbsa_id)}).Updates(models.CBSA{
-			PublicTansitPercentage: usagePercentage,
-			PublicTansitEstimate:   uint64(usageEstimate),
-		})
-	}
-
-}
-
-func addTransitScores(db *gorm.DB, wg *sync.WaitGroup) {
-	defer wg.Done()
-	var cbsas []models.CBSA
-	var quantiles api.Quantile
-	var rank models.Rank
-	cbsaResult := db.Find(&cbsas)
-	if cbsaResult.Error != nil {
-		fmt.Print(cbsaResult.Error)
-		return
-	}
-	quantiles_data, err := api.ReadData("Transit_Ranks.csv")
+func handleFileError(err error, file string) {
 	if err != nil {
-		fmt.Print(err)
-	}
-	for i := range quantiles_data {
-		if i != 0 {
-			q, err := strconv.ParseFloat(quantiles_data[i][1], 64)
-			if err != nil {
-				fmt.Println(err)
-			}
-			quantiles = append(quantiles, q)
-		}
-	}
-	for i := range cbsas {
-		searchRank := api.GetTransitScore(cbsas[i].PublicTansitPercentage, quantiles)
-		if rank_result := db.Where(&models.Rank{Geoid: cbsas[i].Geoid}).First(&rank); rank_result.Error != nil {
-			fmt.Println(rank_result.Error)
-		}
-		rank.TransitScore = uint8(searchRank)
-		db.Save(&rank)
+		log.Fatalf("Error, file %s could not be read", file)
 	}
 }
-
-func addBikeRidership(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
-	defer wg.Done()
-	for _, record := range database {
-		cbsa_id, err := strconv.ParseUint(record[3], 10, 64)
-		if err != nil {
-			fmt.Println(err)
-			cbsa_id = 99999
-		}
-
-		usage, err := strconv.ParseUint(record[2], 10, 64)
-		if err != nil {
-			fmt.Println(err)
-			usage = 0
-		}
-		if cbsa_result := db.Where(&models.CBSA{CBSA: uint32(cbsa_id)}).Updates(&models.CBSA{BikeRidership: usage}); cbsa_result.Error != nil {
-			fmt.Println(cbsa_result.Error)
-		}
-	}
-
-}
-func createZipToCBSA(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
-	defer wg.Done()
-	zipcodes := api.MatchZipToCBSA(database)
-	result := create_entry(db, zipcodes)
-	if result.Error != nil {
-		log.Println(result.Error)
-	}
-}
-
-func addCBSAPopulation(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
-	defer wg.Done()
-	for _, record := range database {
-		cbsa_id, err := strconv.ParseUint(record[0], 10, 64)
-		if err != nil {
-			fmt.Println(err)
-			cbsa_id = 99999
-		}
-
-		pop, err := strconv.ParseUint(record[8], 10, 64)
-		if err != nil {
-			fmt.Println(err)
-			pop = 0
-		}
-		if cbsa_result := db.Model(&models.CBSA{}).Where(&models.CBSA{CBSA: uint32(cbsa_id)}).Updates(&models.CBSA{Population: pop}); cbsa_result.Error != nil {
-			fmt.Println(cbsa_result.Error)
-		}
-	}
-
-}
-
-func repopulateGroupTracts(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
-	defer wg.Done()
-	db_data := make(chan []models.BlockGroup)
-	go func() {
-		res := api.CreateTractGroups(database)
-		db_data <- res
-	}()
-	res := <-db_data
-	result := create_entry(db, res)
-	if result.Error != nil {
-		log.Fatal(result.Error)
-	}
-}
-func init_db(url string) (*gorm.DB, error) {
-	db, err := gorm.Open(mysql.Open(url))
-	if err != nil {
-		return nil, err
-	}
-	db.AutoMigrate(
-		&models.BlockGroup{},
-		&models.GeoidDetail{},
-		&models.CSA{},
-		&models.CBSA{},
-		&models.AC{},
-		&models.Population{},
-		&models.Rank{},
-		&models.Shape{},
-		&models.ZipCode{},
-	)
-	return db, nil
-}
-
 func main() {
 	gin.SetMode(gin.ReleaseMode)
 	dbUser := os.Getenv("DB_USER")
 	if dbUser == "" {
-		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", dbUser)
+		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "DB_USER")
 	}
 	dbPass := os.Getenv("DB_PASS")
 	if dbPass == "" {
-		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", dbPass)
+		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "DB_PASS")
 	}
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
-		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", dbName)
+		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "DB_NAME")
 	}
 	connectionName := os.Getenv("CLOUD_SQL_CONNECTION_NAME")
 	if connectionName == "" {
-		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", connectionName)
+		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "CLOUD_SQL_CONNECTION_NAME")
 	}
 	port := os.Getenv("INTERNAL_PORT")
 	if port == "" {
-		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", port)
+		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "INTERNAL_PORT")
 	}
-	// cockroachDbUser := os.Getenv("COCKROACH_DB_USER")
-	// if dbUser == "" {
-	// 	log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", dbUser)
-	// }
-	// cockroachDbPass := os.Getenv("COCKROACH_DB_PASS")
-	// if dbPass == "" {
-	// 	log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", dbPass)
-	// }
-	// cockroachDbConnection := os.Getenv("COCKROACH_DB_CONNECTION")
-	// if cockroachDbConnection == "" {
-	// 	log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", cockroachDbConnection)
-	// }
 
-	//
+	// "/cloudsql/"+connectionName,
 	dbUrl := fmt.Sprintf(
 		"%s:%s@unix(%s)/%s?parseTime=true",
 		dbUser,
@@ -229,47 +61,38 @@ func main() {
 	// 	cockroachDbConnection,
 	// )
 
-	db, err := init_db(dbUrl)
+	gormDB, err := db.InitDB(dbUrl)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	// var wg sync.WaitGroup
 	// wg.Add(1)
 
-	// db_file, err := api.ReadData(DB_FILE)
-	// if err != nil {
-	// 	log.Fatalf("Error, file %s could not be read", db_file)
-	// }
-	// go repopulateGroupTracts(db, db_file, &wg)
+	// dbFile, err := api.ReadData(DB_FILE)
+	// handleFileError(err, DB_FILE)
+	// go db.RepopulateGroupTracts(gormDB, dbFile, &wg)
 
 	// transit_file, err := api.ReadData(CBSA_TRANSIT_FILE)
-	// if err != nil {
-	// 	log.Fatalf("Error, file %s could not be read", transit_file)
-	// }
-	// go addTransitUsage(db, transit_file, &wg)
+	// handleFileError(err, CBSA_TRANSIT_FILE)
+	// go db.AddTransitUsage(gormDB, transit_file, &wg)
 
 	// bike_file, err := api.ReadData(CBSA_BIKE_FILE)
-	// if err != nil {
-	// 	log.Fatalf("Error, file %s could not be read", bike_file)
-	// }
-	// go addBikeRidership(db, bike_file, &wg)
+	// handleFileError(err, CBSA_BIKE_FILE)
+	// go db.AddBikeRidership(gormDB, bike_file, &wg)
 
 	// zip_file, err := api.ReadData(ZIPCODE_FILE)
-	// if err != nil {
-	// 	log.Fatalf("Error, file %s could not be read", zip_file)
-	// }
-	// go createZipToCBSA(db, zip_file, &wg)
+	// handleFileError(err, ZIPCODE_FILE)
+	// go db.CreateZipToCBSA(gormDB, zip_file, &wg)
 
-	// go addTransitScores(db, &wg)
+	// go db.AddTransitScores(gormDB, &wg)
 
 	// popFile, err := api.ReadData(POPULATION_FILE)
-	// if err != nil {
-	// 	log.Fatalf("Error, file %s could not be read", popFile)
-	// }
-	// go addCBSAPopulation(db, popFile, &wg)
+	// handleFileError(err, POPULATION_FILE)
+	// go db.AddCBSAPopulation(gormDB, popFile, &wg)
+
 	router := gin.Default()
 	router.Use(middleware.AuthenticateRequest())
-	api.RegisterRoutes(router, db)
+	api.RegisterRoutes(router, gormDB)
 	router.GET("/", func(ctx *gin.Context) {
 		ctx.JSON(200, gin.H{
 			"title":     "Open-NWI API",
