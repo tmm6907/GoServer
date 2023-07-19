@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"nwi.io/nwi/api"
@@ -17,13 +18,29 @@ const CBSA_TRANSIT_FILE = "CBSA_Public_Transit_Usage.csv"
 const CBSA_BIKE_FILE = "CBSA_Bicylce_Ridership.csv"
 const POPULATION_FILE = "2022_CBSA_POP_ESTIMATE.csv"
 
+const (
+	CREATE_DB = 1 << iota
+	UPDATE_TRANSIT
+	UPDATE_BIKE
+	UPDATE_BIKE_PERCENT
+	CREATE_ZIPCODE
+	UPDATE_POPULATION
+	UPDATE_TRANSIT_SCORES
+	UPDATE_BIKE_SCORES
+	CREATE_CBSA_DATAFRAME
+	ACTIVATE_RELEASE_MODE
+)
+
 func handleFileError(err error, file string) {
 	if err != nil {
 		log.Fatalf("Error, file %s could not be read", file)
 	}
 }
 func main() {
-	gin.SetMode(gin.ReleaseMode)
+	var wg sync.WaitGroup
+	router := gin.Default()
+	flags := ACTIVATE_RELEASE_MODE
+
 	dbUser := os.Getenv("DB_USER")
 	if dbUser == "" {
 		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "DB_USER")
@@ -44,47 +61,87 @@ func main() {
 	if port == "" {
 		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "INTERNAL_PORT")
 	}
-
-	// "/cloudsql/"+connectionName,
-	dbUrl := fmt.Sprintf(
-		"%s:%s@unix(%s)/%s?parseTime=true",
-		dbUser,
-		dbPass,
-		"/cloudsql/"+connectionName,
-		dbName,
-	)
+	dbUrl := ""
+	if flags&ACTIVATE_RELEASE_MODE != 0 {
+		gin.SetMode(gin.ReleaseMode)
+		dbUrl = fmt.Sprintf(
+			"%s:%s@unix(%s)/%s?parseTime=true",
+			dbUser,
+			dbPass,
+			"/cloudsql/"+connectionName,
+			dbName,
+		)
+		router.Use(middleware.AuthenticateRequest())
+	} else {
+		dbUrl = fmt.Sprintf(
+			"%s:%s@tcp(%s)/%s?parseTime=true",
+			dbUser,
+			dbPass,
+			"localhost",
+			dbName,
+		)
+	}
 
 	gormDB, err := db.InitDB(dbUrl)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	// var wg sync.WaitGroup
-	// wg.Add(1)
 
-	// dbFile, err := api.ReadData(DB_FILE)
-	// handleFileError(err, DB_FILE)
-	// go db.RepopulateGroupTracts(gormDB, dbFile, &wg)
+	if flags&CREATE_DB != 0 {
+		wg.Add(1)
+		dbFile, err := api.ReadData(DB_FILE)
+		handleFileError(err, DB_FILE)
+		go db.RepopulateGroupTracts(gormDB, dbFile, &wg)
+	}
 
-	// transit_file, err := api.ReadData(CBSA_TRANSIT_FILE)
-	// handleFileError(err, CBSA_TRANSIT_FILE)
-	// go db.AddTransitUsage(gormDB, transit_file, &wg)
+	if flags&UPDATE_TRANSIT != 0 {
+		wg.Add(1)
+		transit_file, err := api.ReadData(CBSA_TRANSIT_FILE)
+		handleFileError(err, CBSA_TRANSIT_FILE)
+		go db.AddTransitUsage(gormDB, transit_file, &wg)
+	}
 
-	// bike_file, err := api.ReadData(CBSA_BIKE_FILE)
-	// handleFileError(err, CBSA_BIKE_FILE)
-	// go db.AddBikeRidership(gormDB, bike_file, &wg)
+	if flags&UPDATE_BIKE != 0 {
+		wg.Add(1)
+		bike_file, err := api.ReadData(CBSA_BIKE_FILE)
+		handleFileError(err, CBSA_BIKE_FILE)
+		go db.AddBikeRidership(gormDB, bike_file, &wg)
+	}
 
-	// zip_file, err := api.ReadData(ZIPCODE_FILE)
-	// handleFileError(err, ZIPCODE_FILE)
-	// go db.CreateZipToCBSA(gormDB, zip_file, &wg)
+	if flags&UPDATE_BIKE_PERCENT != 0 {
+		wg.Add(1)
+		go db.FindBikeRidershipPercentage(gormDB, &wg)
+	}
 
-	// go db.AddTransitScores(gormDB, &wg)
+	if flags&UPDATE_POPULATION != 0 {
+		wg.Add(1)
+		popFile, err := api.ReadData(POPULATION_FILE)
+		handleFileError(err, POPULATION_FILE)
+		go db.AddCBSAPopulation(gormDB, popFile, &wg)
+	}
 
-	// popFile, err := api.ReadData(POPULATION_FILE)
-	// handleFileError(err, POPULATION_FILE)
-	// go db.AddCBSAPopulation(gormDB, popFile, &wg)
+	if flags&CREATE_ZIPCODE != 0 {
+		wg.Add(1)
+		zip_file, err := api.ReadData(ZIPCODE_FILE)
+		handleFileError(err, ZIPCODE_FILE)
+		go db.CreateZips(gormDB, zip_file, &wg)
+	}
 
-	router := gin.Default()
-	router.Use(middleware.AuthenticateRequest())
+	if flags&UPDATE_TRANSIT_SCORES != 0 {
+		wg.Add(1)
+		go db.AddTransitScores(gormDB, &wg)
+	}
+
+	if flags&UPDATE_BIKE_SCORES != 0 {
+		wg.Add(1)
+		go db.AddBikeScores(gormDB, &wg)
+	}
+
+	if flags&CREATE_CBSA_DATAFRAME != 0 {
+		wg.Add(1)
+		go db.WriteToCBSADataframe(gormDB, &wg)
+	}
+
 	api.RegisterRoutes(router, gormDB)
 	router.GET("/", func(ctx *gin.Context) {
 		ctx.JSON(200, gin.H{
@@ -99,7 +156,7 @@ func main() {
 			},
 		},
 		)
-		// wg.Wait()
 	})
 	router.Run(port)
+	wg.Wait()
 }

@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"nwi.io/nwi/models"
+	"nwi.io/nwi/serializers"
 )
 
 const (
@@ -67,6 +68,119 @@ func ReadData(fileName string) ([][]string, error) {
 
 	return records, nil
 }
+
+func parseTractGroupFields(record []string) *serializers.TractGroup {
+	group := &serializers.TractGroup{}
+	intVal, _ := strconv.ParseInt(record[geoid10], 10, 64)
+	group.Geoid10 = int(intVal)
+	intVal, _ = strconv.ParseInt(record[geoid20], 10, 64)
+	group.Geoid20 = int(intVal)
+	intVal, _ = strconv.ParseInt(record[statefp], 10, 8)
+	group.Statefp = int(intVal)
+	intVal, _ = strconv.ParseInt(record[countyfp], 10, 16)
+	group.Countyfp = int(intVal)
+	intVal, _ = strconv.ParseInt(record[tractce], 10, 32)
+	group.Tractce = int(intVal)
+	intVal, _ = strconv.ParseInt(record[blkgrpce], 10, 8)
+	group.Blkgrpce = int(intVal)
+	floatVal, _ := strconv.ParseFloat(record[csa], 64)
+	group.CSA = int(floatVal)
+	floatVal, _ = strconv.ParseFloat(record[cbsa], 32)
+	group.CBSA = int(floatVal)
+	floatVal, _ = strconv.ParseFloat(record[acTotal], 64)
+	group.ACT = floatVal
+	floatVal, _ = strconv.ParseFloat(record[acWater], 64)
+	group.ACW = floatVal
+	floatVal, _ = strconv.ParseFloat(record[acLand], 64)
+	group.ACL = floatVal
+	floatVal, _ = strconv.ParseFloat(record[acUnpr], 64)
+	group.ACU = floatVal
+	intVal, _ = strconv.ParseInt(record[totalPop], 10, 16)
+	group.TOTP = int(intVal)
+	floatVal, _ = strconv.ParseFloat(record[countHU], 64)
+	group.Counthu = floatVal
+	floatVal, _ = strconv.ParseFloat(record[hh], 64)
+	group.HH = floatVal
+	intVal, _ = strconv.ParseInt(record[cbsaPop], 10, 16)
+	group.CbsaPop = int(intVal)
+	floatVal, _ = strconv.ParseFloat(record[d2b], 64)
+	group.D2B = floatVal
+	floatVal, _ = strconv.ParseFloat(record[d2a], 64)
+	group.D2A = floatVal
+	floatVal, _ = strconv.ParseFloat(record[d3b], 64)
+	group.D3B = floatVal
+	floatVal, _ = strconv.ParseFloat(record[d4a], 64)
+	group.D4A = floatVal
+	floatVal, _ = strconv.ParseFloat(record[d2aRanked], 64)
+	group.D2AR = floatVal
+	floatVal, _ = strconv.ParseFloat(record[d2bRanked], 64)
+	group.D2BR = floatVal
+	floatVal, _ = strconv.ParseFloat(record[d3bRanked], 64)
+	group.D3BR = floatVal
+	floatVal, _ = strconv.ParseFloat(record[d4aRanked], 64)
+	group.D4AR = floatVal
+	floatVal, _ = strconv.ParseFloat(record[nwi], 64)
+	group.NWI = floatVal
+	floatVal, _ = strconv.ParseFloat(record[shapeLength], 64)
+	group.SHL = floatVal
+	floatVal, _ = strconv.ParseFloat(record[shapeArea], 64)
+	group.SHA = floatVal
+	return group
+}
+
+func CreateTractGroups(database [][]string) []models.BlockGroup {
+	var census_tract_groups []models.BlockGroup
+	for _, record := range database {
+		group := parseTractGroupFields(record)
+		group_tract := models.BlockGroup{
+			Geoid10: uint64(group.Geoid10),
+			Geoid20: uint64(group.Geoid20),
+			GeoidDetail: models.GeoidDetail{
+				Statefp:  uint8(group.Statefp),
+				Countyfp: uint16(group.Countyfp),
+				Tractce:  uint32(group.Tractce),
+				Blkgrpce: uint8(group.Blkgrpce)},
+			CSA: models.CSA{
+				CSA:      uint16(group.CSA),
+				CSA_name: record[csaName],
+			},
+			CBSA: models.CBSA{
+				CBSA:      uint32(group.CBSA),
+				CBSA_name: record[cbsaName],
+			},
+			AC: models.AC{
+				AC_total: group.ACT,
+				AC_water: group.ACW,
+				AC_land:  group.ACL,
+				AC_unpr:  group.ACU,
+			},
+			Population: models.Population{
+				Total_pop: uint16(group.TOTP),
+				CountHU:   group.Counthu,
+				HH:        group.HH,
+			},
+			Rank: models.Rank{
+				D2b_e8mixa: group.D2B,
+				D2a_ephhm:  group.D2A,
+				D3b:        group.D3B,
+				D4a:        group.D4A,
+				D2a_ranked: float32(group.D2AR),
+				D2b_ranked: float32(group.D2BR),
+				D3b_ranked: float32(group.D3BR),
+				D4a_ranked: float32(group.D4AR),
+				NWI:        group.NWI,
+			},
+			Shape: models.Shape{
+				Shape_length: group.SHL,
+				Shape_area:   group.SHA,
+			},
+		}
+		fmt.Println(group_tract.CBSA.CBSA)
+		census_tract_groups = append(census_tract_groups, group_tract)
+	}
+	return census_tract_groups
+}
+
 func MatchZipToCBSA(records [][]string) []models.ZipCode {
 	var zipcodes []models.ZipCode
 	for _, record := range records {
@@ -86,176 +200,12 @@ func MatchZipToCBSA(records [][]string) []models.ZipCode {
 	return zipcodes
 }
 
-func GetTransitScore(percentage float64, quantile Quantile) int {
+func GetScores(percentage float64, quantile Quantile) int {
 	for i := range quantile {
-		rank := i + 1
-		if percentage < quantile[i] {
-			return rank - 1
+		if percentage <= quantile[i] {
+			return i + 1
 		}
 	}
+	fmt.Println(percentage)
 	return 0
-}
-
-func CreateTractGroups(database [][]string) []models.BlockGroup {
-	var census_tract_groups []models.BlockGroup
-	for _, record := range database {
-		// record[30] = record[30][16 : len(record[30])-3]
-
-		_geoid10, err := strconv.ParseUint(record[geoid10], 10, 64)
-		if err != nil {
-			_geoid10 = 0
-		}
-		_geoid20, err := strconv.ParseUint(record[geoid20], 10, 64)
-		if err != nil {
-			_geoid20 = 0
-		}
-
-		_statefp, err := strconv.ParseUint(record[statefp], 10, 8)
-		if err != nil {
-			_statefp = 0
-		}
-		_countyfp, err := strconv.ParseUint(record[countyfp], 10, 16)
-		if err != nil {
-			_countyfp = 0
-		}
-		_tractce, err := strconv.ParseUint(record[tractce], 10, 32)
-		if err != nil {
-			_tractce = 0
-		}
-		_blkgrpce, err := strconv.ParseUint(record[blkgrpce], 10, 8)
-		if err != nil {
-			_blkgrpce = 0
-		}
-		_csa, err := strconv.ParseFloat(record[csa], 64)
-		if err != nil {
-			_csa = 0
-		}
-		_cbsa, err := strconv.ParseFloat(record[cbsa], 32)
-		if err != nil {
-			_cbsa = 0
-		}
-		ac_t, err := strconv.ParseFloat(record[acTotal], 64)
-		if err != nil {
-			ac_t = 0
-		}
-		ac_w, err := strconv.ParseFloat(record[acWater], 64)
-		if err != nil {
-			ac_w = 0
-		}
-		ac_l, err := strconv.ParseFloat(record[acLand], 64)
-		if err != nil {
-			ac_l = 0
-		}
-		ac_u, err := strconv.ParseFloat(record[acUnpr], 64)
-		if err != nil {
-			ac_u = 0
-		}
-		totp, err := strconv.ParseUint(record[totalPop], 10, 16)
-		if err != nil {
-			totp = 0
-		}
-		counthu, err := strconv.ParseFloat(record[countHU], 64)
-		if err != nil {
-			counthu = 0
-		}
-		_hh, err := strconv.ParseFloat(record[hh], 64)
-		if err != nil {
-			_hh = 0
-		}
-		_cbsaPop, err := strconv.ParseUint(record[cbsaPop], 10, 16)
-		if err != nil {
-			_cbsaPop = 0
-		}
-		_d2b, err := strconv.ParseFloat(record[d2b], 64)
-		if err != nil {
-			_d2b = 0
-		}
-		_d2a, err := strconv.ParseFloat(record[d2a], 64)
-		if err != nil {
-			_d2a = 0
-		}
-		_d3b, err := strconv.ParseFloat(record[d3b], 64)
-		if err != nil {
-			_d3b = 0
-		}
-		_d4a, err := strconv.ParseFloat(record[d4a], 64)
-		if err != nil {
-			_d4a = 0
-		}
-		d2a_r, err := strconv.ParseFloat(record[d2aRanked], 64)
-		if err != nil {
-			d2a_r = 0
-		}
-		d2b_r, err := strconv.ParseFloat(record[d2bRanked], 64)
-		if err != nil {
-			d2b_r = 0
-		}
-		d3b_r, err := strconv.ParseFloat(record[d3bRanked], 64)
-		if err != nil {
-			d3b_r = 0
-		}
-		d4a_r, err := strconv.ParseFloat(record[d4aRanked], 64)
-		if err != nil {
-			d4a_r = 0
-		}
-		_nwi, err := strconv.ParseFloat(record[nwi], 64)
-		if err != nil {
-			_nwi = 0
-		}
-		sh_l, err := strconv.ParseFloat(record[shapeLength], 64)
-		if err != nil {
-			sh_l = 0
-		}
-		sh_a, err := strconv.ParseFloat(record[shapeArea], 64)
-		if err != nil {
-			sh_a = 0
-		}
-		group_tract := models.BlockGroup{
-			Geoid10: _geoid10,
-			Geoid20: _geoid20,
-			GeoidDetail: models.GeoidDetail{
-				Statefp:  uint8(_statefp),
-				Countyfp: uint16(_countyfp),
-				Tractce:  uint32(_tractce),
-				Blkgrpce: uint8(_blkgrpce)},
-			CSA: models.CSA{
-				CSA:      uint16(_csa),
-				CSA_name: record[csaName],
-			},
-			CBSA: models.CBSA{
-				CBSA:       uint32(_cbsa),
-				CBSA_name:  record[cbsaName],
-				Population: _cbsaPop,
-			},
-			AC: models.AC{
-				AC_total: ac_t,
-				AC_water: ac_w,
-				AC_land:  ac_l,
-				AC_unpr:  ac_u,
-			},
-			Population: models.Population{
-				Total_pop: uint16(totp),
-				CountHU:   counthu,
-				HH:        _hh,
-			},
-			Rank: models.Rank{
-				D2b_e8mixa: _d2b,
-				D2a_ephhm:  _d2a,
-				D3b:        _d3b,
-				D4a:        _d4a,
-				D2a_ranked: float32(d2a_r),
-				D2b_ranked: float32(d2b_r),
-				D3b_ranked: float32(d3b_r),
-				D4a_ranked: float32(d4a_r),
-				NWI:        _nwi,
-			},
-			Shape: models.Shape{
-				Shape_length: sh_l,
-				Shape_area:   sh_a,
-			},
-		}
-		fmt.Println(group_tract.CBSA.CBSA)
-		census_tract_groups = append(census_tract_groups, group_tract)
-	}
-	return census_tract_groups
 }

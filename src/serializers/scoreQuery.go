@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"strings"
+	"net/url"
 )
 
 type ScoreQuery struct {
@@ -12,12 +12,12 @@ type ScoreQuery struct {
 	ZipCode string `form:"zipcode" json:"zipcode" xml:"zipcode" validate:"min=5,max=5"`
 	Limit   int    `form:"limit" json:"limit" xml:"limit" validate:"max=500"`
 	Offset  int    `form:"offset" json:"offset" xml:"offset"`
-	Format  string `form:"format" json:"format" xml:"format" binding:"required"`
+	Format  string `form:"format" json:"format" xml:"format"`
 }
 
 func (q *ScoreQuery) GetGeoid() (string, error) {
 	var geoidResults GeoCodingResult
-	url := "https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress?address=" + q.GetAddress() + "&benchmark=2020&vintage=Census2010_Census2020&format=json"
+	url := "https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress?address=" + q.getEncodedAddress() + "&benchmark=2020&vintage=Census2010_Census2020&format=json"
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -42,8 +42,8 @@ func (q *ScoreQuery) GetGeoid() (string, error) {
 		return "", nil
 	}
 }
-func (q *ScoreQuery) GetAddress() string {
-	return strings.ReplaceAll(q.Address, " ", "%20")
+func (q *ScoreQuery) getEncodedAddress() string {
+	return url.QueryEscape(q.Address)
 }
 func (q *ScoreQuery) SetLimit() {
 	if q.Limit == 0 {

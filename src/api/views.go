@@ -19,7 +19,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 	cacheResult, ok := caches.CACHE.Get(url)
 	if ok {
 		switch t := reflect.TypeOf(cacheResult); t {
-		case reflect.TypeOf([]serializers.ScoreResult{}), reflect.TypeOf(serializers.AddressScoreResult{}):
+		case reflect.TypeOf([]serializers.ScoreResults{}), reflect.TypeOf(serializers.AddressScoreResult{}):
 			ctx.JSON(http.StatusOK, &cacheResult)
 			return
 		case reflect.TypeOf(serializers.AddressScoreResultXML{}), reflect.TypeOf(serializers.XMLResults{}):
@@ -70,26 +70,26 @@ func (h handler) GetScores(ctx *gin.Context) {
 		switch query.Format {
 		case "json":
 			result := serializers.AddressScoreResult{
-				Geoid:                          geoid10,
-				NWI:                            score.NWI,
-				SearchedAddress:                query.Address,
-				RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
-				RegionalTransitUsage:           cbsa.PublicTansitEstimate,
-				RegionalBikeRidership:          cbsa.BikeRidership,
-				Format:                         query.Format,
+				Geoid:           geoid10,
+				CBSAName:        cbsa.CBSA_name,
+				NWI:             score.NWI,
+				TransitScore:    score.TransitScore,
+				BikeScore:       score.BikeScore,
+				SearchedAddress: query.Address,
+				Format:          query.Format,
 			}
 			caches.CACHE.Put(url, result)
 			ctx.JSON(http.StatusOK, &result)
 		case "xml":
 			result := serializers.AddressScoreResultXML{
-				XMLName:                        xml.Name{Space: "result"},
-				Geoid:                          geoid10,
-				NWI:                            score.NWI,
-				SearchedAddress:                query.Address,
-				RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
-				RegionalTransitUsage:           cbsa.PublicTansitEstimate,
-				RegionalBikeRidership:          cbsa.BikeRidership,
-				Format:                         query.Format,
+				XMLName:         xml.Name{Space: "result"},
+				Geoid:           geoid10,
+				CBSAName:        cbsa.CBSA_name,
+				NWI:             score.NWI,
+				TransitScore:    score.TransitScore,
+				BikeScore:       score.BikeScore,
+				SearchedAddress: query.Address,
+				Format:          query.Format,
 			}
 			caches.CACHE.Put(url, result)
 			ctx.XML(http.StatusOK, &result)
@@ -126,7 +126,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 		case "json":
 			var subwg sync.WaitGroup
 			var mu sync.RWMutex
-			results := []serializers.ScoreResult{}
+			results := []serializers.ScoreResults{}
 			for i := range scores {
 				subwg.Add(1)
 				go func(i int) {
@@ -142,16 +142,14 @@ func (h handler) GetScores(ctx *gin.Context) {
 					mu.Lock()
 					results = append(
 						results,
-						serializers.ScoreResult{
-							ID:                             i + query.Offset,
-							Geoid:                          scores[i].Geoid,
-							CSA_name:                       csa.CSA_name,
-							CBSA_name:                      cbsa.CBSA_name,
-							NWI:                            scores[i].NWI,
-							RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
-							RegionalTransitUsage:           cbsa.PublicTansitEstimate,
-							RegionalBikeRidership:          cbsa.BikeRidership,
-							Format:                         query.Format,
+						serializers.ScoreResults{
+							ID:           i + query.Offset,
+							Geoid:        scores[i].Geoid,
+							CBSAName:     cbsa.CBSA_name,
+							NWI:          scores[i].NWI,
+							TransitScore: scores[i].TransitScore,
+							BikeScore:    scores[i].BikeScore,
+							Format:       query.Format,
 						},
 					)
 					mu.Unlock()
@@ -163,7 +161,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 		case "xml":
 			var subwg sync.WaitGroup
 			var mu sync.RWMutex
-			resultScores := []serializers.ScoreResultXML{}
+			resultScores := []serializers.ScoreResultsXML{}
 			for i := range scores {
 				subwg.Add(1)
 				go func(i int) {
@@ -179,17 +177,15 @@ func (h handler) GetScores(ctx *gin.Context) {
 					mu.Lock()
 					resultScores = append(
 						resultScores,
-						serializers.ScoreResultXML{
-							XMLName:                        xml.Name{Space: "result"},
-							ID:                             i + query.Offset,
-							Geoid:                          scores[i].Geoid,
-							CSA_name:                       csa.CSA_name,
-							CBSA_name:                      cbsa.CBSA_name,
-							NWI:                            scores[i].NWI,
-							RegionalTransitUsagePercentage: cbsa.PublicTansitPercentage,
-							RegionalTransitUsage:           cbsa.PublicTansitEstimate,
-							RegionalBikeRidership:          cbsa.BikeRidership,
-							Format:                         query.Format,
+						serializers.ScoreResultsXML{
+							XMLName:      xml.Name{Space: "result"},
+							ID:           i + query.Offset,
+							Geoid:        scores[i].Geoid,
+							CBSAName:     cbsa.CBSA_name,
+							NWI:          scores[i].NWI,
+							TransitScore: scores[i].TransitScore,
+							BikeScore:    scores[i].BikeScore,
+							Format:       query.Format,
 						},
 					)
 					mu.Unlock()
