@@ -4,6 +4,7 @@ import "encoding/xml"
 
 type ScoreResults struct {
 	ID           int     `json:"id"`
+	RankID       uint    `json:"rankID"`
 	Geoid        uint64  `json:"geoid"`
 	CBSAName     string  `json:"cbsaName"`
 	NWI          float64 `json:"nwi"`
@@ -15,8 +16,9 @@ type ScoreResults struct {
 type ScoreResultsXML struct {
 	XMLName      xml.Name `xml:"result"`
 	ID           int      `xml:"id,attr"`
+	RankID       uint     `xml:"rankID"`
 	Geoid        uint64   `xml:"geoid"`
-	CBSAName     string   `json:"cbsaName"`
+	CBSAName     string   `xml:"cbsaName"`
 	NWI          float64  `xml:"nwi"`
 	TransitScore uint8    `xml:"transitScore"`
 	BikeScore    uint8    `xml:"bikeScore"`

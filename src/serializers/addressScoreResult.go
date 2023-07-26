@@ -3,6 +3,7 @@ package serializers
 import "encoding/xml"
 
 type AddressScoreResult struct {
+	RankID          uint    `json:"rankID"`
 	Geoid           uint64  `json:"geoid"`
 	CBSAName        string  `json:"cbsaName"`
 	NWI             float64 `json:"nwi"`
@@ -14,8 +15,9 @@ type AddressScoreResult struct {
 
 type AddressScoreResultXML struct {
 	XMLName         xml.Name `xml:"result"`
+	RankID          uint     `xml:"rankID"`
 	Geoid           uint64   `xml:"geoid"`
-	CBSAName        string   `json:"cbsaName"`
+	CBSAName        string   `xml:"cbsaName"`
 	NWI             float64  `xml:"nwi"`
 	TransitScore    uint8    `xml:"transitScore"`
 	BikeScore       uint8    `xml:"bikeScore"`

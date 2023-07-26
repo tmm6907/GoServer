@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"sync"
 
@@ -23,7 +24,7 @@ const (
 	UPDATE_TRANSIT
 	UPDATE_BIKE
 	UPDATE_BIKE_PERCENT
-	CREATE_ZIPCODE
+	CREATE_ZIPCODES
 	UPDATE_POPULATION
 	UPDATE_TRANSIT_SCORES
 	UPDATE_BIKE_SCORES
@@ -120,7 +121,7 @@ func main() {
 		go db.AddCBSAPopulation(gormDB, popFile, &wg)
 	}
 
-	if flags&CREATE_ZIPCODE != 0 {
+	if flags&CREATE_ZIPCODES != 0 {
 		wg.Add(1)
 		zip_file, err := api.ReadData(ZIPCODE_FILE)
 		handleFileError(err, ZIPCODE_FILE)
@@ -144,7 +145,7 @@ func main() {
 
 	api.RegisterRoutes(router, gormDB)
 	router.GET("/", func(ctx *gin.Context) {
-		ctx.JSON(200, gin.H{
+		ctx.JSON(http.StatusOK, gin.H{
 			"title":     "Open-NWI API",
 			"body":      "Welcome to Open-NWI API, An open-source API to access EPA's National Walkability Index for any address recognized by US Census Geocoding.",
 			"endpoints": "/scores",

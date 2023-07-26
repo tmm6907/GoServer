@@ -4,7 +4,7 @@ import "gorm.io/gorm"
 
 type Rank struct {
 	gorm.Model
-	Geoid        uint64 `gorm:"ForeignKey:Geoid10;autoIncrement:false"`
+	Geoid        uint64 `gorm:"ForeignKey:Geoid10;autoIncrement:false;index:unique"`
 	D2b_e8mixa   float64
 	D2a_ephhm    float64
 	D3b          float64
