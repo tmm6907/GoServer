@@ -6,7 +6,7 @@ An open-source API to access EPA's National Walkability Index for any address re
 ### Input
 /scores/?address=1600 Pennsylvania Avenue NW, Washington, DC
 /scores/?address=1600 Pennsylvania Avenue NW, Washington, DC&format=xml
-/scores/?zipcode=20050&limit=3&format=json
+/scores/?zipcode=55111&limit=3&format=json
 /scores/?zipcode=20050&limit=3&format=json&offset=130
 
 ### Output *out.json*
