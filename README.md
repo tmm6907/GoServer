@@ -4,131 +4,99 @@
 An open-source API to access EPA's National Walkability Index for any address recognized by US Census Geocoding. Checkout https://opennwi.dev/ to get started!
 ## Usage
 ### Input
-```
-// Search by address : Sreet, City, Zip
-curl -o out.json "https://opennwi.dev/scores?address=1600%20Pennsylvania%20Avenue%20NW%2C%20Washington%2C%20DC%2020500%20"
-
-// Search by address : Sreet, City
-curl -o out.json "https://opennwi.dev/scores?address=1600%20Pennsylvania%20Avenue%20NW%2C%20Washington%2C%20DC"
-
-// Get list of scores (limit=50)
-curl -o out.json "https://opennwi.dev/scores"
-
-// Get list of scores (limit=3, offset=13000)
-curl -o out.json "https://opennwi.dev/scores?limit=3&offset=13000"
-
-// Get List of scores by Zip
-curl -o out.json "https://opennwi.dev/scores?zipcode=20024?limit=3&offset=13000"
-```
+/scores/?address=1600 Pennsylvania Avenue NW, Washington, DC
+/scores/?address=1600 Pennsylvania Avenue NW, Washington, DC&format=xml
+/scores/?zipcode=20050&limit=3&format=json
+/scores/?zipcode=20050&limit=3&format=json&offset=130
 
 ### Output *out.json*
 Where **nwi** is the total score of walkability for the given area. Scores range from 0-20.
 ```js
 // address with zipcode
 {
-  "geoid": 110010062021,
-  "nwi": 18,
-  "regionalTransitUsagePercentage": 4.1,
-  "regionalBikeRidership": 14909,
-  "searchedAddress": "1600 Pennsylvania Avenue NW, Washington, DC 20500"
+  rankID:61619
+  geoid:110010062021
+  cbsaName:"Washington-Arlington-Alexandria, DC-VA-MD-WV"
+  nwi:18
+  transitScore:20
+  bikeScore:9
+  searchedAddress:"1600 Pennsylvania Avenue NW, Washington, DC 20500"
+  format:"json"
 }
 
-// address without zipcode
-{
-  "geoid": 110010062021,
-  "nwi": 18,
-  "regionalTransitUsagePercentage": 4.1,
-  "regionalBikeRidership": 14909,
-  "searchedAddress": "1600 Pennsylvania Avenue NW, Washington, DC"
-}
+// address without zipcode (format=xml)
+<result>
+  <rankID>61619</rankID>
+  <geoid>110010062021</geoid>
+  <cbsaName>Washington-Arlington-Alexandria, DC-VA-MD-WV</cbsaName>
+  <nwi>18</nwi>
+  <transitScore>20</transitScore>
+  <bikeScore>9</bikeScore>
+  <searchedAddress>1600 Pennsylvania Avenue NW, Washington, DC</searchedAddress>
+  <format>xml</format>
+</result>
 
-// list of scores (limit=50)
+// list of scores (limit=3, format=xml)
+<results>
+  <result id="0">
+    <rankID>115880</rankID>
+    <geoid>271630710031</geoid>
+    <cbsaName>Minneapolis-St. Paul-Bloomington, MN-WI</cbsaName>
+    <nwi>8.5</nwi>
+    <transitScore>19</transitScore>
+    <bikeScore>17</bikeScore>
+    <format>xml</format>
+  </result>
+  <result id="1">
+    <rankID>115881</rankID>
+    <geoid>271630710032</geoid>
+    <cbsaName>Minneapolis-St. Paul-Bloomington, MN-WI</cbsaName>
+    <nwi>8.333333333</nwi>
+    <transitScore>19</transitScore>
+    <bikeScore>17</bikeScore>
+    <format>xml</format>
+  </result>
+  <result id="2">
+    <rankID>115882</rankID>
+    <geoid>271630710033</geoid>
+    <cbsaName>Minneapolis-St. Paul-Bloomington, MN-WI</cbsaName>
+    <nwi>6.833333333</nwi>
+    <transitScore>19</transitScore>
+    <bikeScore>17</bikeScore>
+    <format>xml</format>
+  </result>
+</results>
+
+// list of scores (limit=3, offset=130, format=json)
 [
   {
-    "id": 0,
-    "geoid": 481130078254,
-    "csa_name": "Dallas-Fort Worth, TX-OK",
-    "cbsa_name": "Dallas-Fort Worth-Arlington, TX",
-    "nwi": 14,
-    "regionalTransitUsagePercentage": 0.6,
-    "regionalBikeRidership": 4992
-  },
+    id:130
+    rankID:15244
+    geoid:511076118032
+    cbsaName:"Washington-Arlington-Alexandria, DC-VA-MD-WV"
+    nwi:11.33333333
+    transitScore:20
+    bikeScore:9
+    format:"json"
+  }
   {
-    "id": 1,
-    "geoid": 481130078252,
-    "csa_name": "Dallas-Fort Worth, TX-OK",
-    "cbsa_name": "Dallas-Fort Worth-Arlington, TX",
-    "nwi": 10.833333333333334,
-    "regionalTransitUsagePercentage": 0.6,
-    "regionalBikeRidership": 4992
-  },
+    id:131
+    rankID:15258
+    geoid:511790102053
+    cbsaName:"Washington-Arlington-Alexandria, DC-VA-MD-WV"
+    nwi:7.5
+    transitScore:20
+    bikeScore:9
+    format:"json"
+  }
   {
-    "id": 2,
-    "geoid": 481130078253,
-    "csa_name": "Dallas-Fort Worth, TX-OK",
-    "cbsa_name": "Dallas-Fort Worth-Arlington, TX",
-    "nwi": 8.333333333333334,
-    "regionalTransitUsagePercentage": 0.6,
-    "regionalBikeRidership": 4992
-  },
-  {
-    "id": 3,
-    "geoid": 481130078241,
-    "csa_name": "Dallas-Fort Worth, TX-OK",
-    "cbsa_name": "Dallas-Fort Worth-Arlington, TX",
-    "nwi": 15.666666666666668,
-    "regionalTransitUsagePercentage": 0.6,
-    "regionalBikeRidership": 4992
-  },
-  {
-    "id": 4,
-    "geoid": 481130078242,
-    "csa_name": "Dallas-Fort Worth, TX-OK",
-    "cbsa_name": "Dallas-Fort Worth-Arlington, TX",
-    "nwi": 10.166666666666668,
-    "regionalTransitUsagePercentage": 0.6,
-    "regionalBikeRidership": 4992
-  },
-  {
-    "id": 5,
-    "geoid": 481130078271,
-    "csa_name": "Dallas-Fort Worth, TX-OK",
-    "cbsa_name": "Dallas-Fort Worth-Arlington, TX",
-    "nwi": 6.833333333333333,
-    "regionalTransitUsagePercentage": 0.6,
-    "regionalBikeRidership": 4992
-  },
-    ...
-]
-
-// list of scores (limit=3, offset=13000)
-[
-  {
-    "id": 13000,
-    "geoid": 484599504002,
-    "csa_name": "",
-    "cbsa_name": "Longview, TX",
-    "nwi": 6.166666666666667,
-    "regionalTransitUsagePercentage": 0,
-    "regionalBikeRidership": 0
-  },
-  {
-    "id": 13001,
-    "geoid": 484599505001,
-    "csa_name": "",
-    "cbsa_name": "Longview, TX",
-    "nwi": 3.5,
-    "regionalTransitUsagePercentage": 0,
-    "regionalBikeRidership": 0
-  },
-  {
-    "id": 13002,
-    "geoid": 484599501006,
-    "csa_name": "",
-    "cbsa_name": "Longview, TX",
-    "nwi": 2.8333333333333335,
-    "regionalTransitUsagePercentage": 0,
-    "regionalBikeRidership": 0
+    id:132
+    rankID:15259
+    geoid:511790102132
+    cbsaName:"Washington-Arlington-Alexandria, DC-VA-MD-WV"
+    nwi:5.166666667
+    transitScore:20
+    bikeScore:9
+    format:"json"
   }
 ]
-```
