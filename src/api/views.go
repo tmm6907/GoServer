@@ -90,7 +90,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 				CBSAName:        cbsa.CBSA_name,
 				NWI:             score.NWI,
 				TransitScore:    score.TransitScore,
-				BikeScore:       score.BikeScore,
+				BikeScore:       score.BikeShareRank,
 				SearchedAddress: query.Address,
 				Format:          query.Format,
 			}
@@ -105,7 +105,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 				CBSAName:        cbsa.CBSA_name,
 				NWI:             score.NWI,
 				TransitScore:    score.TransitScore,
-				BikeScore:       score.BikeScore,
+				BikeScore:       score.BikeShareRank,
 				SearchedAddress: query.Address,
 				Format:          query.Format,
 			}
@@ -167,7 +167,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 							CBSAName:     cbsa.CBSA_name,
 							NWI:          scores[i].NWI,
 							TransitScore: scores[i].TransitScore,
-							BikeScore:    scores[i].BikeScore,
+							BikeScore:    scores[i].BikeShareRank,
 							Format:       query.Format,
 						},
 					)
@@ -205,7 +205,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 							CBSAName:     cbsa.CBSA_name,
 							NWI:          scores[i].NWI,
 							TransitScore: scores[i].TransitScore,
-							BikeScore:    scores[i].BikeScore,
+							BikeScore:    scores[i].BikeShareRank,
 							Format:       query.Format,
 						},
 					)
@@ -261,14 +261,14 @@ func (h handler) GetScoreDetails(ctx *gin.Context) {
 				D2a_ephhm:               searchedRank.D2a_ephhm,
 				D3b:                     searchedRank.D3b,
 				D4a:                     searchedRank.D4a,
-				D2a_ranked:              searchedRank.D2a_ranked,
-				D2b_ranked:              searchedRank.D2b_ranked,
-				D3b_ranked:              searchedRank.D3b_ranked,
-				D4a_ranked:              searchedRank.D4a_ranked,
 				PublicTransitEstimate:   cbsa.PublicTransitEstimate,
 				PublicTransitPercentage: cbsa.PublicTransitPercentage,
 				BikeRidership:           cbsa.BikeRidership,
 				BikeRidershipPercentage: cbsa.BikeRidershipPercentage,
+				BikeRidershipRank:       searchedRank.BikeCountRank,
+				BikePercentageRank:      searchedRank.BikePercentageRank,
+				BikeFatalityRank:        searchedRank.BikeCountRank,
+				BikeShareRank:           searchedRank.BikeShareRank,
 			}
 			ctx.JSON(http.StatusOK, &result)
 			return
@@ -279,14 +279,14 @@ func (h handler) GetScoreDetails(ctx *gin.Context) {
 				D2a_ephhm:               searchedRank.D2a_ephhm,
 				D3b:                     searchedRank.D3b,
 				D4a:                     searchedRank.D4a,
-				D2a_ranked:              searchedRank.D2a_ranked,
-				D2b_ranked:              searchedRank.D2b_ranked,
-				D3b_ranked:              searchedRank.D3b_ranked,
-				D4a_ranked:              searchedRank.D4a_ranked,
 				PublicTransitEstimate:   cbsa.PublicTransitEstimate,
 				PublicTransitPercentage: cbsa.PublicTransitPercentage,
 				BikeRidership:           cbsa.BikeRidership,
 				BikeRidershipPercentage: cbsa.BikeRidershipPercentage,
+				BikeRidershipRank:       searchedRank.BikeCountRank,
+				BikePercentageRank:      searchedRank.BikePercentageRank,
+				BikeFatalityRank:        searchedRank.BikeCountRank,
+				BikeShareRank:           searchedRank.BikeShareRank,
 			}
 			ctx.XML(http.StatusOK, &result)
 			return

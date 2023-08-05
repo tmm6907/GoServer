@@ -8,14 +8,14 @@ type DetailResult struct {
 	D2a_ephhm               float64 `json:"d2a"`
 	D3b                     float64 `json:"d3b"`
 	D4a                     float64 `json:"d4a"`
-	D2a_ranked              float32 `json:"d2aRanked"`
-	D2b_ranked              float32 `json:"d2bRanked"`
-	D3b_ranked              float32 `json:"d3bRanked"`
-	D4a_ranked              float32 `json:"d4aRanked"`
 	PublicTransitEstimate   uint64  `json:"publicTransitEstimate"`
 	PublicTransitPercentage float64 `json:"publicTransitPercentage"`
 	BikeRidership           uint64  `json:"bikeRidership"`
 	BikeRidershipPercentage float64 `json:"bikeRidershipPercentage"`
+	BikeRidershipRank       uint8   `json:"bikeRidershipRank"`
+	BikePercentageRank      uint8   `json:"bikePercentageRank"`
+	BikeFatalityRank        uint8   `json:"bikeFatalityRank"`
+	BikeShareRank           uint8   `json:"bikeShareRank"`
 }
 
 type DetailResultXML struct {
@@ -25,12 +25,12 @@ type DetailResultXML struct {
 	D2a_ephhm               float64  `xml:"d2a_ephhm"`
 	D3b                     float64  `xml:"d3b"`
 	D4a                     float64  `xml:"d4a"`
-	D2a_ranked              float32  `xml:"d2aRanked"`
-	D2b_ranked              float32  `xml:"d2bRanked"`
-	D3b_ranked              float32  `xml:"d3bRanked"`
-	D4a_ranked              float32  `xml:"d4aRanked"`
 	PublicTransitEstimate   uint64   `xml:"publicTransitEstimate"`
 	PublicTransitPercentage float64  `xml:"publicTransitPercentage"`
 	BikeRidership           uint64   `xml:"bikeRidership"`
 	BikeRidershipPercentage float64  `xml:"bikeRidershipPercentage"`
+	BikeRidershipRank       uint8    `xml:"bikeRidershipRank"`
+	BikePercentageRank      uint8    `xml:"bikePercentageRank"`
+	BikeFatalityRank        uint8    `xml:"bikeFatalityRank"`
+	BikeShareRank           uint8    `xml:"bikeShareRank"`
 }

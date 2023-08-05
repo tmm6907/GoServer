@@ -42,6 +42,16 @@ const (
 	shapeArea
 )
 
+const (
+	countFactor     float64 = 0.55
+	percentFactor   float64 = 0.35
+	bikeShareFactor float64 = 0.10
+	fatalityFactor  float64 = 0.15
+)
+
+type ScoreInput interface {
+	float64 | uint
+}
 type Quantile []float64
 
 func ReadData(fileName string) ([][]string, error) {
@@ -200,12 +210,19 @@ func MatchZipToCBSA(records [][]string) []models.ZipCode {
 	return zipcodes
 }
 
-func GetScores(percentage float64, quantile Quantile) int {
+func GetScores[T ScoreInput](input T, quantile Quantile) int {
 	for i := range quantile {
-		if percentage <= quantile[i] {
+		if float64(input) <= quantile[i] {
 			return i + 1
 		}
 	}
-	fmt.Println(percentage)
+	return 0
+}
+
+func CalculateBikeScore(count uint8, percent uint8, fatality uint8, bikeShare uint8) float64 {
+	score := (countFactor * float64(count)) + (percentFactor * float64(percent)) + (fatalityFactor * -float64(fatality)) + (bikeShareFactor * float64(bikeShare))
+	if score > 0 {
+		return score
+	}
 	return 0
 }

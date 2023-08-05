@@ -25,9 +25,15 @@ const (
 	UPDATE_BIKE
 	UPDATE_BIKE_PERCENT
 	CREATE_ZIPCODES
+	CREATE_BIKESHARES
+	CREATE_FATALITIES
 	UPDATE_POPULATION
 	UPDATE_TRANSIT_SCORES
 	UPDATE_BIKE_SCORES
+	UPDATE_BIKE_PERCENT_RANKS
+	UPDATE_BIKE_COUNT_RANKS
+	UPDATE_BIKESHARE_RANKS
+	UPDATE_FATALITIES_RANKS
 	CREATE_CBSA_DATAFRAME
 	ACTIVATE_RELEASE_MODE
 )
@@ -40,15 +46,15 @@ func handleFileError(err error, file string) {
 func main() {
 	var wg sync.WaitGroup
 	router := gin.Default()
-	flags := ACTIVATE_RELEASE_MODE
+	flags := 0
 
-	dbUser := os.Getenv("DB_USER")
+	dbUser := os.Getenv("LINODE_USER")
 	if dbUser == "" {
-		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "DB_USER")
+		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "LINODE_USER")
 	}
-	dbPass := os.Getenv("DB_PASS")
+	dbPass := os.Getenv("OCEAN_PASS")
 	if dbPass == "" {
-		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "DB_PASS")
+		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "LINODE_PASS")
 	}
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
@@ -62,6 +68,7 @@ func main() {
 	if port == "" {
 		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "INTERNAL_PORT")
 	}
+
 	dbUrl := ""
 	if flags&ACTIVATE_RELEASE_MODE != 0 {
 		gin.SetMode(gin.ReleaseMode)
@@ -75,11 +82,11 @@ func main() {
 		router.Use(middleware.AuthenticateRequest())
 	} else {
 		dbUrl = fmt.Sprintf(
-			"%s:%s@tcp(%s)/%s?parseTime=true",
-			dbUser,
+			"%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local&tls=true",
+			"doadmin",
 			dbPass,
-			"localhost",
-			dbName,
+			"db-mysql-nyc1-68213-do-user-14161587-0.b.db.ondigitalocean.com:25060",
+			"defaultdb",
 		)
 	}
 
@@ -128,14 +135,48 @@ func main() {
 		go db.CreateZips(gormDB, zip_file, &wg)
 	}
 
-	if flags&UPDATE_TRANSIT_SCORES != 0 {
+	if flags&CREATE_BIKESHARES != 0 {
 		wg.Add(1)
-		go db.AddTransitScores(gormDB, &wg)
+		go db.CreateBikeShares(gormDB, &wg)
+	}
+
+	if flags&UPDATE_BIKE_COUNT_RANKS != 0 {
+		wg.Add(1)
+		go db.AddBikeCountRanks(gormDB, &wg)
+	}
+	if flags&UPDATE_BIKESHARE_RANKS != 0 {
+		wg.Add(1)
+		go db.AddBikeShareRanks(gormDB, &wg)
 	}
 
 	if flags&UPDATE_BIKE_SCORES != 0 {
 		wg.Add(1)
 		go db.AddBikeScores(gormDB, &wg)
+	}
+
+	if flags&CREATE_FATALITIES != 0 {
+		wg.Add(1)
+		go db.CreateFatalities(gormDB, &wg)
+	}
+
+	if flags&UPDATE_TRANSIT_SCORES != 0 {
+		wg.Add(1)
+		go db.AddTransitScores(gormDB, &wg)
+	}
+
+	if flags&UPDATE_BIKE_PERCENT_RANKS != 0 {
+		wg.Add(1)
+		go db.AddBikePercentageRanks(gormDB, &wg)
+	}
+
+	if flags&UPDATE_FATALITIES_RANKS != 0 {
+		wg.Add(1)
+		go db.AddFatalityRanks(gormDB, &wg)
+	}
+
+	if flags&CREATE_CBSA_DATAFRAME != 0 {
+		wg.Add(1)
+		go db.WriteToCBSADataframe(gormDB, &wg)
 	}
 
 	if flags&CREATE_CBSA_DATAFRAME != 0 {
