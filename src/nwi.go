@@ -48,10 +48,10 @@ func main() {
 	router := gin.Default()
 	flags := 0
 
-	dbUser := os.Getenv("LINODE_USER")
-	if dbUser == "" {
-		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "LINODE_USER")
-	}
+	// dbUser := os.Getenv("LINODE_USER")
+	// if dbUser == "" {
+	// 	log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "LINODE_USER")
+	// }
 	dbPass := os.Getenv("OCEAN_PASS")
 	if dbPass == "" {
 		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "LINODE_PASS")
@@ -74,7 +74,7 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 		dbUrl = fmt.Sprintf(
 			"%s:%s@unix(%s)/%s?parseTime=true",
-			dbUser,
+			"dbUser",
 			dbPass,
 			"/cloudsql/"+connectionName,
 			dbName,
