@@ -251,7 +251,7 @@ func AddBikeScores(db *gorm.DB, wg *sync.WaitGroup) {
 			workers <- struct{}{}
 			searchRank := api.CalculateBikeScore(rank.BikeCountRank, rank.BikePercentageRank, rank.BikeFatalityRank, rank.BikeShareRank)
 			if rank_result := db.Model(&models.Rank{}).Where(&models.Rank{Geoid: rank.Geoid}).Updates(models.Rank{BikeScore: searchRank}); rank_result.Error != nil {
-				log.Fatalln(rank_result.Error)
+				fmt.Println(rank_result.Error)
 			}
 			defer func() {
 				<-workers
@@ -365,7 +365,7 @@ func AddBikeCountRanks(db *gorm.DB, wg *sync.WaitGroup) {
 			workers <- struct{}{}
 			searchRank := api.GetScores(uint(cbsa.BikeRidership), quantiles)
 			if rank_result := db.Model(&models.Rank{}).Where(&models.Rank{Geoid: cbsa.Geoid}).Updates(models.Rank{BikeCountRank: uint8(searchRank)}); rank_result.Error != nil {
-				log.Fatalln(rank_result.Error)
+				fmt.Println(rank_result.Error)
 			}
 			defer func() {
 				<-workers
@@ -414,13 +414,11 @@ func AddCBSAPopulation(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 		subwg.Add(1)
 		cbsa_id, err := strconv.ParseUint(record[0], 10, 64)
 		if err != nil {
-			log.Fatalln(err)
 			cbsa_id = 99999
 		}
 
 		pop, err := strconv.ParseUint(record[8], 10, 64)
 		if err != nil {
-			log.Fatalln(err)
 			pop = 0
 		}
 		go func(record []string, cbsa_id uint64, pop uint64) {

@@ -13,8 +13,8 @@ type Rank struct {
 	D2b_ranked         float32
 	D3b_ranked         float32
 	D4a_ranked         float32
-	BikeCountRank      uint8
-	BikePercentageRank uint8
+	BikeCountRank      uint8 `gorm:"default:1"`
+	BikePercentageRank uint8 `gorm:"default:1"`
 	BikeFatalityRank   uint8
 	BikeShareRank      uint8 `gorm:"default:1"`
 	NWI                float64

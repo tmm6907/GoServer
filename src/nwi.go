@@ -46,15 +46,15 @@ func handleFileError(err error, file string) {
 func main() {
 	var wg sync.WaitGroup
 	router := gin.Default()
-	flags := 0
+	flags := ACTIVATE_RELEASE_MODE
 
-	// dbUser := os.Getenv("LINODE_USER")
-	// if dbUser == "" {
-	// 	log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "LINODE_USER")
-	// }
-	dbPass := os.Getenv("OCEAN_PASS")
+	dbUser := os.Getenv("DB_USER")
+	if dbUser == "" {
+		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "DB_USER")
+	}
+	dbPass := os.Getenv("DB_PASS")
 	if dbPass == "" {
-		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "LINODE_PASS")
+		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "DB_PASS")
 	}
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
@@ -82,11 +82,11 @@ func main() {
 		router.Use(middleware.AuthenticateRequest())
 	} else {
 		dbUrl = fmt.Sprintf(
-			"%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local&tls=true",
-			"doadmin",
+			"%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+			dbUser,
 			dbPass,
-			"db-mysql-nyc1-68213-do-user-14161587-0.b.db.ondigitalocean.com:25060",
-			"defaultdb",
+			"localhost",
+			dbName,
 		)
 	}
 

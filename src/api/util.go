@@ -224,5 +224,8 @@ func CalculateBikeScore(count uint8, percent uint8, fatality uint8, bikeShare ui
 	if score > 0 {
 		return score
 	}
+	if count != 0 || percent != 0 || fatality != 0 || bikeShare != 0 {
+		return 1
+	}
 	return 0
 }

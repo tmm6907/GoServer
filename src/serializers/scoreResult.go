@@ -9,7 +9,7 @@ type ScoreResults struct {
 	CBSAName     string  `json:"cbsaName"`
 	NWI          float64 `json:"nwi"`
 	TransitScore uint8   `json:"transitScore"`
-	BikeScore    uint8   `json:"bikeScore"`
+	BikeScore    float64 `json:"bikeScore"`
 	Format       string  `json:"format"`
 }
 
@@ -21,7 +21,7 @@ type ScoreResultsXML struct {
 	CBSAName     string   `xml:"cbsaName"`
 	NWI          float64  `xml:"nwi"`
 	TransitScore uint8    `xml:"transitScore"`
-	BikeScore    uint8    `xml:"bikeScore"`
+	BikeScore    float64  `xml:"bikeScore"`
 	Format       string   `xml:"format"`
 }
 
