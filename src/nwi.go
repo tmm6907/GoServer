@@ -74,7 +74,7 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 		dbUrl = fmt.Sprintf(
 			"%s:%s@unix(%s)/%s?parseTime=true",
-			"dbUser",
+			dbUser,
 			dbPass,
 			"/cloudsql/"+connectionName,
 			dbName,
