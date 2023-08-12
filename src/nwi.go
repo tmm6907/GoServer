@@ -79,7 +79,7 @@ func main() {
 			"/cloudsql/"+connectionName,
 			dbName,
 		)
-		router.Use(middleware.AuthenticateRequest())
+		router.Use(middleware.IPWhiteListMiddleware())
 	} else {
 		dbUrl = fmt.Sprintf(
 			"%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
