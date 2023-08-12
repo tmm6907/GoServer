@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -92,9 +93,7 @@ func IPWhiteListMiddleware() gin.HandlerFunc {
 		ip := c.ClientIP()
 
 		if !IPWhitelist[ip] {
-			c.IndentedJSON(http.StatusForbidden, gin.H{
-				"message": "You are not authorised to use this endpoint",
-			})
+			c.AbortWithError(http.StatusForbidden, fmt.Errorf("you are not authorised to use this endpoint"))
 			return
 		}
 	}
