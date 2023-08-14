@@ -93,7 +93,7 @@ func IPWhiteListMiddleware() gin.HandlerFunc {
 		ip := c.ClientIP()
 
 		if !IPWhitelist[ip] {
-			c.AbortWithError(http.StatusForbidden, fmt.Errorf("you are not authorised to use this endpoint"))
+			c.AbortWithError(http.StatusForbidden, fmt.Errorf("you are not authorized to use this endpoint"))
 			return
 		}
 	}

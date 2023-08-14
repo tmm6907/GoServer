@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"gorm.io/driver/mysql"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"nwi.io/nwi/api"
 	"nwi.io/nwi/models"
@@ -23,39 +23,23 @@ type DBEntry interface {
 }
 
 func CreateDBEntry[N DBEntry](db *gorm.DB, data []N) *gorm.DB {
-	var wg sync.WaitGroup
-	workers := make(chan struct{}, CONNECTION_LIMIT)
 	for i := 0; i < len(data); i += INSERT_LIMIT {
-		wg.Add(1)
-		go func(i int) {
-			workers <- struct{}{}
-			if len(data) > INSERT_LIMIT {
-				result := db.Create(data[i : i+INSERT_LIMIT])
-				if result.Error != nil {
-					log.Fatalln(result.Error)
-				}
-			} else {
-				result := db.Create(data)
-				if result.Error != nil {
-					log.Fatalln(result.Error)
-				}
+		if len(data) > INSERT_LIMIT {
+			result := db.Create(data[i : i+INSERT_LIMIT])
+			if result.Error != nil {
+				log.Fatalln(result.Error)
 			}
-
-			defer func() {
-				<-workers
-				wg.Done()
-			}()
-		}(i)
+		} else {
+			result := db.Create(data)
+			if result.Error != nil {
+				log.Fatalln(result.Error)
+			}
+		}
 	}
-	wg.Wait()
 	return db
 }
 
-func AddTransitUsage(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	var subwg sync.WaitGroup
-	workers := make(chan struct{}, CONNECTION_LIMIT)
+func AddTransitUsage(db *gorm.DB, database [][]string) {
 	for _, record := range database {
 		cbsa_id, err := strconv.ParseUint(record[4], 10, 32)
 		if err != nil {
@@ -69,25 +53,14 @@ func AddTransitUsage(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 		if err != nil {
 			usagePercentage = 0
 		}
-		subwg.Add(1)
-		go func(cbsa_id uint64, usageEstimate float64, usagePercentage float64) {
-			workers <- struct{}{}
-
-			db.Model(&models.CBSA{}).Where(&models.CBSA{CBSA: uint32(cbsa_id)}).Updates(models.CBSA{
-				PublicTransitPercentage: usagePercentage,
-				PublicTransitEstimate:   uint64(usageEstimate),
-			})
-			defer func() {
-				<-workers
-				subwg.Done()
-			}()
-		}(cbsa_id, usageEstimate, usagePercentage)
+		db.Model(&models.CBSA{}).Where(&models.CBSA{CBSA: uint32(cbsa_id)}).Updates(models.CBSA{
+			PublicTransitPercentage: usagePercentage,
+			PublicTransitEstimate:   uint64(usageEstimate),
+		})
 	}
-	subwg.Wait()
 }
 
-func AddTransitScores(db *gorm.DB, wg *sync.WaitGroup) {
-	defer wg.Done()
+func AddTransitScores(db *gorm.DB) {
 	var cbsas []models.CBSA
 	var quantiles api.Quantile
 	cbsaResult := db.Where("public_transit_percentage > 0").Find(&cbsas)
@@ -108,35 +81,22 @@ func AddTransitScores(db *gorm.DB, wg *sync.WaitGroup) {
 			quantiles = append(quantiles, q)
 		}
 	}
-	var subwg sync.WaitGroup
-	workers := make(chan struct{}, CONNECTION_LIMIT)
 	for i := range cbsas {
-		subwg.Add(1)
-		go func(i int) {
-			workers <- struct{}{}
-			searchRank := api.GetScores(cbsas[i].PublicTransitPercentage, quantiles)
-			if rank_result := db.Model(&models.Rank{}).Where(&models.Rank{Geoid: cbsas[i].Geoid}).Updates(models.Rank{TransitScore: uint8(searchRank)}); rank_result.Error != nil {
-				log.Fatalln(rank_result.Error)
-			}
-			defer func() {
-				<-workers
-				subwg.Done()
-			}()
-		}(i)
+		searchRank := api.GetScores(cbsas[i].PublicTransitPercentage, quantiles)
+		if rank_result := db.Model(&models.Rank{}).Where(&models.Rank{Geoid: cbsas[i].Geoid}).Updates(models.Rank{TransitScore: uint8(searchRank)}); rank_result.Error != nil {
+			log.Fatalln(rank_result.Error)
+		}
 	}
-	subwg.Wait()
 }
 
-func CreateBikeShares(db *gorm.DB, wg *sync.WaitGroup) {
+func CreateBikeShares(db *gorm.DB) {
 	var shares []models.BikeShare
-	defer wg.Done()
 	var subwg sync.WaitGroup
 	bikeShareData, err := api.ReadData("BikeShareData.csv")
 	if err != nil {
 		panic(err)
 	}
 	for i, record := range bikeShareData {
-		subwg.Add(1)
 		if i != 0 {
 			fips, _ := strconv.ParseUint(record[0], 10, 32)
 			count, _ := strconv.ParseUint(record[2], 10, 16)
@@ -147,13 +107,10 @@ func CreateBikeShares(db *gorm.DB, wg *sync.WaitGroup) {
 			shares = append(shares, share)
 		}
 	}
-	subwg.Add(1)
-	go CreateDBEntry(db, shares)
-	subwg.Wait()
+	CreateDBEntry(db, shares)
 }
 
-func AddBikeShareRanks(db *gorm.DB, wg *sync.WaitGroup) {
-	defer wg.Done()
+func AddBikeShareRanks(db *gorm.DB) {
 	var bikeShares []models.BikeShare
 	var quantiles api.Quantile
 	bikeShareResult := db.Where("count > 0").Find(&bikeShares)
@@ -174,27 +131,15 @@ func AddBikeShareRanks(db *gorm.DB, wg *sync.WaitGroup) {
 			quantiles = append(quantiles, q)
 		}
 	}
-	var subwg sync.WaitGroup
-	workers := make(chan struct{}, CONNECTION_LIMIT)
 	for _, bikeShare := range bikeShares {
-		subwg.Add(1)
-		go func(bikeShare models.BikeShare) {
-			workers <- struct{}{}
-			searchRank := api.GetScores(uint(bikeShare.Count), quantiles)
-			if rank_result := db.Model(&models.Rank{}).Where(fmt.Sprintf("geoid LIKE '%v%%'", bikeShare.FIPS)).Updates(models.Rank{BikeShareRank: uint8(searchRank)}); rank_result.Error != nil {
-				log.Fatalln(rank_result.Error)
-			}
-			defer func() {
-				<-workers
-				subwg.Done()
-			}()
-		}(bikeShare)
+		searchRank := api.GetScores(uint(bikeShare.Count), quantiles)
+		if rank_result := db.Model(&models.Rank{}).Where(fmt.Sprintf("geoid LIKE '%v%%'", bikeShare.FIPS)).Updates(models.Rank{BikeShareRank: uint8(searchRank)}); rank_result.Error != nil {
+			log.Fatalln(rank_result.Error)
+		}
 	}
-	subwg.Wait()
 }
 
-func AddBikePercentageRanks(db *gorm.DB, wg *sync.WaitGroup) {
-	defer wg.Done()
+func AddBikePercentageRanks(db *gorm.DB) {
 	var cbsas []models.CBSA
 	var quantiles api.Quantile
 	cbsaResult := db.Where("bike_ridership_percentage > 0").Find(&cbsas)
@@ -216,55 +161,31 @@ func AddBikePercentageRanks(db *gorm.DB, wg *sync.WaitGroup) {
 			quantiles = append(quantiles, q)
 		}
 	}
-	var subwg sync.WaitGroup
-	workers := make(chan struct{}, CONNECTION_LIMIT)
 	for i := range cbsas {
-		subwg.Add(1)
-		go func(i int) {
-			workers <- struct{}{}
-			searchRank := api.GetScores(cbsas[i].BikeRidershipPercentage, quantiles)
-			if rank_result := db.Where(&models.Rank{Geoid: cbsas[i].Geoid}).Updates(models.Rank{BikePercentageRank: uint8(searchRank)}); rank_result.Error != nil {
-				log.Fatalln(rank_result.Error)
-			}
-			defer func() {
-				<-workers
-				subwg.Done()
-			}()
-		}(i)
+		searchRank := api.GetScores(cbsas[i].BikeRidershipPercentage, quantiles)
+		if rank_result := db.Where(&models.Rank{Geoid: cbsas[i].Geoid}).Updates(models.Rank{BikePercentageRank: uint8(searchRank)}); rank_result.Error != nil {
+			log.Fatalln(rank_result.Error)
+		}
 	}
-	subwg.Wait()
 }
 
-func AddBikeScores(db *gorm.DB, wg *sync.WaitGroup) {
-	defer wg.Done()
+func AddBikeScores(db *gorm.DB) {
 	var ranks []models.Rank
 	totalRankResult := db.Find(&ranks)
 	if totalRankResult.Error != nil {
 		fmt.Print(totalRankResult.Error)
 		return
 	}
-	var subwg sync.WaitGroup
-	workers := make(chan struct{}, CONNECTION_LIMIT)
 	for _, rank := range ranks {
-		subwg.Add(1)
-		go func(rank models.Rank) {
-			workers <- struct{}{}
-			searchRank := api.CalculateBikeScore(rank.BikeCountRank, rank.BikePercentageRank, rank.BikeFatalityRank, rank.BikeShareRank)
-			if rank_result := db.Model(&models.Rank{}).Where(&models.Rank{Geoid: rank.Geoid}).Updates(models.Rank{BikeScore: searchRank}); rank_result.Error != nil {
-				fmt.Println(rank_result.Error)
-			}
-			defer func() {
-				<-workers
-				subwg.Done()
-			}()
-		}(rank)
+		searchRank := api.CalculateBikeScore(rank.BikeCountRank, rank.BikePercentageRank, rank.BikeFatalityRank, rank.BikeShareRank)
+		if rank_result := db.Model(&models.Rank{}).Where(&models.Rank{Geoid: rank.Geoid}).Updates(models.Rank{BikeScore: searchRank}); rank_result.Error != nil {
+			fmt.Println(rank_result.Error)
+		}
 	}
-	subwg.Wait()
 }
 
-func CreateFatalities(db *gorm.DB, wg *sync.WaitGroup) {
+func CreateFatalities(db *gorm.DB) {
 	var states []models.State
-	var createwg sync.WaitGroup
 	fatalityData, err := api.ReadData("BikeFatalities.csv")
 	if err != nil {
 		fmt.Print(err)
@@ -283,13 +204,10 @@ func CreateFatalities(db *gorm.DB, wg *sync.WaitGroup) {
 			states = append(states, state)
 		}
 	}
-	createwg.Add(1)
-	go CreateDBEntry(db, states)
-	createwg.Wait()
+	CreateDBEntry(db, states)
 }
 
-func AddFatalityRanks(db *gorm.DB, wg *sync.WaitGroup) {
-	defer wg.Done()
+func AddFatalityRanks(db *gorm.DB) {
 	var fatalities []models.BikeFatalities
 	var quantiles api.Quantile
 	fatalityResult := db.Where("fatality_percentage > 0").Find(&fatalities)
@@ -310,33 +228,21 @@ func AddFatalityRanks(db *gorm.DB, wg *sync.WaitGroup) {
 			quantiles = append(quantiles, q)
 		}
 	}
-	var subwg sync.WaitGroup
 	var geoidDetail []models.GeoidDetail
-	workers := make(chan struct{}, CONNECTION_LIMIT)
 	for _, fatality := range fatalities {
-		subwg.Add(1)
-		go func(fatality models.BikeFatalities) {
-			workers <- struct{}{}
-			searchRank := api.GetScores(float64(fatality.FatalityPercentage), quantiles)
-			if cbsaResult := db.Where(&models.GeoidDetail{Statefp: fatality.Statefp}).Find(&geoidDetail); cbsaResult.Error != nil {
-				log.Fatalln(cbsaResult.Error)
+		searchRank := api.GetScores(float64(fatality.FatalityPercentage), quantiles)
+		if cbsaResult := db.Where(&models.GeoidDetail{Statefp: fatality.Statefp}).Find(&geoidDetail); cbsaResult.Error != nil {
+			log.Fatalln(cbsaResult.Error)
+		}
+		for _, item := range geoidDetail {
+			if rank_result := db.Model(&models.Rank{}).Where(&models.Rank{Geoid: item.Geoid}).Updates(models.Rank{BikeFatalityRank: uint8(searchRank)}); rank_result.Error != nil {
+				log.Fatalln(rank_result.Error)
 			}
-			for _, item := range geoidDetail {
-				if rank_result := db.Model(&models.Rank{}).Where(&models.Rank{Geoid: item.Geoid}).Updates(models.Rank{BikeFatalityRank: uint8(searchRank)}); rank_result.Error != nil {
-					log.Fatalln(rank_result.Error)
-				}
-			}
-			defer func() {
-				<-workers
-				subwg.Done()
-			}()
-		}(fatality)
+		}
 	}
-	subwg.Wait()
 }
 
-func AddBikeCountRanks(db *gorm.DB, wg *sync.WaitGroup) {
-	defer wg.Done()
+func AddBikeCountRanks(db *gorm.DB) {
 	var cbsas []models.CBSA
 	var quantiles api.Quantile
 	cbsaResult := db.Where("bike_ridership > 0").Find(&cbsas)
@@ -357,29 +263,15 @@ func AddBikeCountRanks(db *gorm.DB, wg *sync.WaitGroup) {
 			quantiles = append(quantiles, q)
 		}
 	}
-	var subwg sync.WaitGroup
-	workers := make(chan struct{}, CONNECTION_LIMIT)
 	for _, cbsa := range cbsas {
-		subwg.Add(1)
-		go func(cbsa models.CBSA) {
-			workers <- struct{}{}
-			searchRank := api.GetScores(uint(cbsa.BikeRidership), quantiles)
-			if rank_result := db.Model(&models.Rank{}).Where(&models.Rank{Geoid: cbsa.Geoid}).Updates(models.Rank{BikeCountRank: uint8(searchRank)}); rank_result.Error != nil {
-				fmt.Println(rank_result.Error)
-			}
-			defer func() {
-				<-workers
-				subwg.Done()
-			}()
-		}(cbsa)
+		searchRank := api.GetScores(uint(cbsa.BikeRidership), quantiles)
+		if rank_result := db.Model(&models.Rank{}).Where(&models.Rank{Geoid: cbsa.Geoid}).Updates(models.Rank{BikeCountRank: uint8(searchRank)}); rank_result.Error != nil {
+			fmt.Println(rank_result.Error)
+		}
 	}
-	subwg.Wait()
 }
 
-func AddBikeRidership(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
-	defer wg.Done()
-	var subwg sync.WaitGroup
-	workers := make(chan struct{}, CONNECTION_LIMIT)
+func AddBikeRidership(db *gorm.DB, database [][]string) {
 	for _, record := range database {
 		cbsa_id, err := strconv.ParseUint(record[3], 10, 64)
 		if err != nil {
@@ -390,28 +282,17 @@ func AddBikeRidership(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 		if err != nil {
 			usage = 0
 		}
-		subwg.Add(1)
-		go func(record []string, cbsa_id uint64, usage uint64) {
-			workers <- struct{}{}
-			if cbsa_result := db.Where(&models.CBSA{CBSA: uint32(cbsa_id)}).Updates(&models.CBSA{BikeRidership: usage}); cbsa_result.Error != nil {
-				time.Sleep(2 * time.Second)
-				db.Where(&models.CBSA{CBSA: uint32(cbsa_id)}).Updates(&models.CBSA{BikeRidership: usage})
-			}
-			defer func() {
-				<-workers
-				subwg.Add(1)
-			}()
-		}(record, cbsa_id, usage)
+
+		if cbsa_result := db.Where(&models.CBSA{CBSA: uint32(cbsa_id)}).Updates(&models.CBSA{BikeRidership: usage}); cbsa_result.Error != nil {
+			time.Sleep(2 * time.Second)
+			db.Where(&models.CBSA{CBSA: uint32(cbsa_id)}).Updates(&models.CBSA{BikeRidership: usage})
+		}
 	}
-	subwg.Wait()
+	
 }
 
-func AddCBSAPopulation(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
-	defer wg.Done()
-	var subwg sync.WaitGroup
-	workers := make(chan struct{}, CONNECTION_LIMIT)
+func AddCBSAPopulation(db *gorm.DB, database [][]string) {
 	for _, record := range database {
-		subwg.Add(1)
 		cbsa_id, err := strconv.ParseUint(record[0], 10, 64)
 		if err != nil {
 			cbsa_id = 99999
@@ -421,62 +302,32 @@ func AddCBSAPopulation(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 		if err != nil {
 			pop = 0
 		}
-		go func(record []string, cbsa_id uint64, pop uint64) {
-			workers <- struct{}{}
 
-			if cbsa_result := db.Model(&models.CBSA{}).Where("CBSA = ? and population = 0", uint32(cbsa_id)).Updates(&models.CBSA{Population: pop}); cbsa_result.Error != nil {
-				log.Fatalln(cbsa_result.Error)
-			}
-			defer func() {
-				<-workers
-				subwg.Done()
-			}()
-		}(record, cbsa_id, pop)
+		if cbsaResult := db.Model(&models.CBSA{}).Where("CBSA = ? and population = 0", uint32(cbsa_id)).Updates(&models.CBSA{Population: pop}); cbsaResult.Error != nil {
+			log.Fatalln(cbsaResult.Error)
+		}
 	}
-	subwg.Wait()
 }
 
-func FindBikeRidershipPercentage(db *gorm.DB, wg *sync.WaitGroup) {
-	defer wg.Done()
+func FindBikeRidershipPercentage(db *gorm.DB) {
+	
 	var cbsas []models.CBSA
 	cbsaResult := db.Where("population > 0 and bike_ridership_percentage = 0 and bike_ridership > 0").Find(&cbsas)
 	if cbsaResult.Error != nil {
 		fmt.Print(cbsaResult.Error)
 		return
 	}
-	var subwg sync.WaitGroup
-	workers := make(chan struct{}, CONNECTION_LIMIT)
+
 	for _, item := range cbsas {
-		subwg.Add(1)
-		go func(item models.CBSA) {
-			workers <- struct{}{}
-
-			db.Model(&item).Update("bike_ridership_percentage", float64(item.BikeRidership)/float64(item.Population))
-			defer func() {
-				<-workers
-				subwg.Done()
-			}()
-		}(item)
-	}
-	subwg.Wait()
-}
-
-func RepopulateGroupTracts(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
-	defer wg.Done()
-	db_data := make(chan []models.BlockGroup)
-	go func() {
-		res := api.CreateTractGroups(database)
-		db_data <- res
-	}()
-	res := <-db_data
-	result := CreateDBEntry(db, res)
-	if result.Error != nil {
-		log.Fatal(result.Error)
+		precentageResult := db.Model(&item).Update("bike_ridership_percentage", float64(item.BikeRidership)/float64(item.Population))
+		if precentageResult.Error != nil{
+			fmt.Print(precentageResult.Error)
+			return
+		}
 	}
 }
 
-func CreateZips(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
-	defer wg.Done()
+func CreateZips(db *gorm.DB, database [][]string) {
 	db_data := make(chan []models.ZipCode)
 	go func() {
 		res := api.MatchZipToCBSA(database)
@@ -489,8 +340,20 @@ func CreateZips(db *gorm.DB, database [][]string, wg *sync.WaitGroup) {
 	}
 }
 
-func WriteToCBSADataframe(db *gorm.DB, wg *sync.WaitGroup) {
-	defer wg.Done()
+func RepopulateGroupTracts(db *gorm.DB, database [][]string) {
+	db_data := make(chan []models.BlockGroup)
+	go func() {
+		res := api.CreateTractGroups(database)
+		db_data <- res
+	}()
+	res := <-db_data
+	result := CreateDBEntry(db, res)
+	if result.Error != nil {
+		log.Fatal(result.Error)
+	}
+}
+
+func WriteToCBSADataframe(db *gorm.DB) {
 	var cbsas []models.CBSA
 	db.Find(&cbsas)
 	file, err := os.Create("Bike_Ridership_Ranks.csv")
@@ -509,47 +372,16 @@ func WriteToCBSADataframe(db *gorm.DB, wg *sync.WaitGroup) {
 	}
 }
 
-// func setUpSSL(dsn string, mysqlClientKey string, mysqlCaCert string, mysqlClientCert string) {
-// 	var isTLS bool
-// 	if mysqlClientKey != "" && mysqlCaCert != "" && mysqlClientCert != "" {
-// 		isTLS = true
-// 		rootCertPool := x509.NewCertPool()
-// 		pem, err := os.ReadFile("/home/tmm6907/.ssl/root/example.crt")
-// 		if err != nil {
-// 			log.Fatal(err)
-// 		}
-// 		if ok := rootCertPool.AppendCertsFromPEM(pem); !ok {
-// 			log.Fatal("Failed to append PEM.")
-// 		}
-// 		clientCert := make([]tls.Certificate, 0, 1)
-// 		certs, err := tls.LoadX509KeyPair("/path/mysqlClientCert", "/path/mysqlClientKey")
-// 		if err != nil {
-// 			log.Fatal(err)
-// 		}
-// 		clientCert = append(clientCert, certs)
-
-// 		mysql.RegisterTLSConfig("custom", &tls.Config{
-// 			RootCAs:      rootCertPool,
-// 			Certificates: clientCert,
-// 		})
-// 	}
-
-// 	// try to connect to mysql database.
-// 	cfg := mysql.Config{}
-
-// 	if isTLS == true {
-// 		cfg.TLSConfig = "custom"
-// 	}
-
-// 	str := cfg.FormatDSN()
-
-//		db, err := gorm.Open("mysql", str)
-//	}
-func InitDB(url string) (*gorm.DB, error) {
-	db, err := gorm.Open(mysql.Open(url))
+func InitDB(path string) (*gorm.DB, error) {
+	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
+
+	result := db.Exec("PRAGMA journal_mode = WAL")
+    if result.Error != nil {
+		return nil, result.Error
+    }
 
 	db.AutoMigrate(
 		&models.BlockGroup{},
