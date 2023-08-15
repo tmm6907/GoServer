@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	"gorm.io/driver/sqlite"
@@ -91,7 +90,6 @@ func AddTransitScores(db *gorm.DB) {
 
 func CreateBikeShares(db *gorm.DB) {
 	var shares []models.BikeShare
-	var subwg sync.WaitGroup
 	bikeShareData, err := api.ReadData("BikeShareData.csv")
 	if err != nil {
 		panic(err)
@@ -131,6 +129,7 @@ func AddBikeShareRanks(db *gorm.DB) {
 			quantiles = append(quantiles, q)
 		}
 	}
+
 	for _, bikeShare := range bikeShares {
 		searchRank := api.GetScores(uint(bikeShare.Count), quantiles)
 		if rank_result := db.Model(&models.Rank{}).Where(fmt.Sprintf("geoid LIKE '%v%%'", bikeShare.FIPS)).Updates(models.Rank{BikeShareRank: uint8(searchRank)}); rank_result.Error != nil {
@@ -288,7 +287,7 @@ func AddBikeRidership(db *gorm.DB, database [][]string) {
 			db.Where(&models.CBSA{CBSA: uint32(cbsa_id)}).Updates(&models.CBSA{BikeRidership: usage})
 		}
 	}
-	
+
 }
 
 func AddCBSAPopulation(db *gorm.DB, database [][]string) {
@@ -310,7 +309,7 @@ func AddCBSAPopulation(db *gorm.DB, database [][]string) {
 }
 
 func FindBikeRidershipPercentage(db *gorm.DB) {
-	
+
 	var cbsas []models.CBSA
 	cbsaResult := db.Where("population > 0 and bike_ridership_percentage = 0 and bike_ridership > 0").Find(&cbsas)
 	if cbsaResult.Error != nil {
@@ -320,7 +319,7 @@ func FindBikeRidershipPercentage(db *gorm.DB) {
 
 	for _, item := range cbsas {
 		precentageResult := db.Model(&item).Update("bike_ridership_percentage", float64(item.BikeRidership)/float64(item.Population))
-		if precentageResult.Error != nil{
+		if precentageResult.Error != nil {
 			fmt.Print(precentageResult.Error)
 			return
 		}
@@ -379,11 +378,11 @@ func InitDB(path string) (*gorm.DB, error) {
 	}
 
 	result := db.Exec("PRAGMA journal_mode = WAL")
-    if result.Error != nil {
+	if result.Error != nil {
 		return nil, result.Error
-    }
+	}
 
-	db.AutoMigrate(
+	tablesResult := db.AutoMigrate(
 		&models.BlockGroup{},
 		&models.GeoidDetail{},
 		&models.CSA{},
@@ -397,5 +396,8 @@ func InitDB(path string) (*gorm.DB, error) {
 		&models.BikeFatalities{},
 		&models.BikeShare{},
 	)
+	if tablesResult != nil {
+		panic(tablesResult)
+	}
 	return db, nil
 }

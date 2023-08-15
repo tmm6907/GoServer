@@ -1,12 +1,11 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log"
-	"net/http"
 	"os"
-	"sync"
 
+	"cloud.google.com/go/storage"
 	"github.com/gin-gonic/gin"
 	"nwi.io/nwi/api"
 	"nwi.io/nwi/db"
@@ -45,7 +44,7 @@ func handleFileError(err error, file string) {
 }
 func main() {
 	router := gin.Default()
-	flags := 0
+	flags := ACTIVATE_RELEASE_MODE
 
 	dbUser := os.Getenv("DB_USER")
 	if dbUser == "" {
@@ -68,19 +67,18 @@ func main() {
 		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "INTERNAL_PORT")
 	}
 
-	path := ""
+	path := "opennwi.db"
 	if flags&ACTIVATE_RELEASE_MODE != 0 {
 		gin.SetMode(gin.ReleaseMode)
-		path = fmt.Sprintf(
-			"%s:%s@unix(%s)/%s?parseTime=true",
-			dbUser,
-			dbPass,
-			"/cloudsql/"+connectionName,
-			dbName,
-		)
-		router.Use(middleware.IPWhiteListMiddleware())
-	} else {
-		path = "opennwi.db"
+		router.Use(middleware.AuthenticateRequest())
+		ctx := context.Background()
+		client, err := storage.NewClient(ctx)
+		if err != nil {
+			panic(err)
+		}
+
+		bucket := client.Bucket("opennwi")
+		log.Println(bucket.Attrs(ctx))
 	}
 
 	gormDB, err := db.InitDB(path)
@@ -126,23 +124,16 @@ func main() {
 		db.CreateBikeShares(gormDB)
 	}
 
-	if flags&UPDATE_BIKE_COUNT_RANKS != 0 {
-		db.AddBikeCountRanks(gormDB)
-	}
-	if flags&UPDATE_BIKESHARE_RANKS != 0 {
-		db.AddBikeShareRanks(gormDB)
-	}
-
-	if flags&UPDATE_BIKE_SCORES != 0 {
-		db.AddBikeScores(gormDB)
-	}
-
 	if flags&CREATE_FATALITIES != 0 {
 		db.CreateFatalities(gormDB)
 	}
 
-	if flags&UPDATE_TRANSIT_SCORES != 0 {
-		db.AddTransitScores(gormDB)
+	if flags&UPDATE_BIKE_COUNT_RANKS != 0 {
+		db.AddBikeCountRanks(gormDB)
+	}
+
+	if flags&UPDATE_BIKESHARE_RANKS != 0 {
+		db.AddBikeShareRanks(gormDB)
 	}
 
 	if flags&UPDATE_BIKE_PERCENT_RANKS != 0 {
@@ -153,8 +144,12 @@ func main() {
 		db.AddFatalityRanks(gormDB)
 	}
 
-	if flags&CREATE_CBSA_DATAFRAME != 0 {
-		db.WriteToCBSADataframe(gormDB)
+	if flags&UPDATE_BIKE_SCORES != 0 {
+		db.AddBikeScores(gormDB)
+	}
+
+	if flags&UPDATE_TRANSIT_SCORES != 0 {
+		db.AddTransitScores(gormDB)
 	}
 
 	if flags&CREATE_CBSA_DATAFRAME != 0 {

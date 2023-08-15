@@ -4,6 +4,6 @@ import "gorm.io/gorm"
 
 type ZipCode struct {
 	gorm.Model
-	Zipcode string `gorm:"primary_key; index:unique"`
+	Zipcode string `gorm:"primary_key"`
 	CBSA    uint32 `gorm:"ForeignKey:CBSA;autoIncrement:false"`
 }

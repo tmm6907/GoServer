@@ -1,7 +1,10 @@
 package models
 
+import "gorm.io/gorm"
+
 type State struct {
+	gorm.Model
 	Name           string
-	Statefp        uint8          `gorm:"primary_key; auto_increment:false"`
+	Statefp        uint8
 	BikeFatalities BikeFatalities `gorm:"ForeignKey:Statefp;OnUpdate:CASCADE,OnDelete:SET NULL"`
 }

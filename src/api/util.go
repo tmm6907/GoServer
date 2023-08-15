@@ -185,7 +185,6 @@ func CreateTractGroups(database [][]string) []models.BlockGroup {
 				Shape_area:   group.SHA,
 			},
 		}
-		fmt.Println(group_tract.CBSA.CBSA)
 		census_tract_groups = append(census_tract_groups, group_tract)
 	}
 	return census_tract_groups
