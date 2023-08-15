@@ -5,3 +5,4 @@ hello
 *.png
 *.svg
 *.ico
+*.db*
