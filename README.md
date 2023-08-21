@@ -38,7 +38,7 @@ Where **nwi** is the total score of walkability for the given area. Scores range
   <format>xml</format>
 </result>
 
-// list of scores (limit=3, format=xml)
+// list of score results (limit=3, format=xml)
 <results>
   <result>
     <rankID>115880</rankID>
