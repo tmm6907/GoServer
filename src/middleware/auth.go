@@ -9,11 +9,16 @@ import (
 
 func AuthenticateRequest() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		userAuth := ctx.GetHeader("X-RapidAPI-Proxy-Secret")
-		authKey := os.Getenv("X_RAPIDAPI_PROXY_SECRET")
-		if userAuth == authKey {
+		secretKey := os.Getenv("X_RAPIDAPI_PROXY_SECRET")
+		secret := ctx.GetHeader("X-RapidAPI-Proxy-Secret")
+		if secret == "" {
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "API key missing secret key"})
 			return
 		}
-		ctx.AbortWithStatus(http.StatusProxyAuthRequired)
+		if secret != secretKey {
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid API key or secret key"})
+			return
+		}
+		ctx.Next()
 	}
 }

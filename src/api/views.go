@@ -4,7 +4,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"net/http"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -30,22 +29,9 @@ const (
 	BikeRidership                  = "bikeRidership"
 	BikeRidershipPercentage        = "bikeRidershipPercentage"
 )
+const CONNECTION_LIMIT = 1000
 
 func (h handler) GetScores(ctx *gin.Context) {
-	url := ctx.Request.URL.RequestURI()
-	cacheResult, ok := caches.CACHE.Get(url)
-	if ok {
-		switch t := reflect.TypeOf(cacheResult); t {
-		case reflect.TypeOf([]serializers.ScoreResults{}), reflect.TypeOf(serializers.AddressScoreResult{}):
-			ctx.JSON(http.StatusOK, &cacheResult)
-			return
-		case reflect.TypeOf(serializers.AddressScoreResultXML{}), reflect.TypeOf(serializers.XMLResults{}):
-			ctx.XML(http.StatusOK, &cacheResult)
-			return
-		default:
-			panic(t)
-		}
-	}
 	var query serializers.ScoreQuery
 	err := ctx.Bind(&query)
 	if err != nil {
@@ -94,7 +80,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 				SearchedAddress: query.Address,
 				Format:          query.Format,
 			}
-			caches.CACHE.Put(url, result)
+			caches.CACHE.Put(ctx.Request.URL.RequestURI(), result)
 			ctx.JSON(http.StatusOK, &result)
 			return
 		case "xml":
@@ -109,7 +95,7 @@ func (h handler) GetScores(ctx *gin.Context) {
 				SearchedAddress: query.Address,
 				Format:          query.Format,
 			}
-			caches.CACHE.Put(url, result)
+			caches.CACHE.Put(ctx.Request.URL.RequestURI(), result)
 			ctx.XML(http.StatusOK, &result)
 			return
 		default:
@@ -120,37 +106,43 @@ func (h handler) GetScores(ctx *gin.Context) {
 		var zipScores []models.Rank
 		var res []models.ZipCode
 		var scores []models.Rank
+		var _wg sync.WaitGroup
+		workers := make(chan struct{}, CONNECTION_LIMIT)
+		var mu sync.RWMutex
 		query.SetLimit()
 		if result := h.DB.Where(&models.ZipCode{Zipcode: query.ZipCode}).Find(&res); result.Error != nil {
 			ctx.AbortWithError(http.StatusNotFound, result.Error)
 			return
 		}
-		var subwg sync.WaitGroup
-		var mu sync.RWMutex
 		for _, item := range res {
-			subwg.Add(1)
+			_wg.Add(1)
 			go func(item models.ZipCode) {
-				defer subwg.Done()
+				workers <- struct{}{}
 				if result := h.DB.Limit(query.Limit).Offset(query.Offset).Where("cbsas.cbsa = ?", item.CBSA).Model(&models.Rank{}).Joins("left join cbsas on cbsas.geoid = ranks.geoid").Scan(&zipScores); result.Error != nil {
 					fmt.Println(result.Error)
 				}
 				mu.Lock()
 				scores = append(scores, zipScores...)
 				mu.Unlock()
+				defer func() {
+					<-workers
+					_wg.Done()
+				}()
 			}(item)
 		}
-		subwg.Wait()
+		_wg.Wait()
 		switch query.Format {
 		case "json":
-			var subwg sync.WaitGroup
+			var csa models.CSA
+			var cbsa models.CBSA
+			var _wg sync.WaitGroup
 			var mu sync.RWMutex
+			workers := make(chan struct{}, CONNECTION_LIMIT)
 			results := []serializers.ScoreResults{}
 			for i := range scores {
-				subwg.Add(1)
+				_wg.Add(1)
 				go func(i int) {
-					defer subwg.Done()
-					var csa models.CSA
-					var cbsa models.CBSA
+					workers <- struct{}{}
 					if csa_result := h.DB.Where(&models.CSA{Geoid: scores[i].Geoid}).First(&csa); csa_result.Error != nil {
 						csa.CSA_name = ""
 					}
@@ -161,7 +153,6 @@ func (h handler) GetScores(ctx *gin.Context) {
 					results = append(
 						results,
 						serializers.ScoreResults{
-							ID:           i + query.Offset,
 							RankID:       scores[i].ID,
 							Geoid:        scores[i].Geoid,
 							CBSAName:     cbsa.CBSA_name,
@@ -172,22 +163,27 @@ func (h handler) GetScores(ctx *gin.Context) {
 						},
 					)
 					mu.Unlock()
+					defer func() {
+						_wg.Done()
+						<-workers
+					}()
 				}(i)
-				subwg.Wait()
 			}
-			caches.CACHE.Put(url, results)
+			_wg.Wait()
+
+			caches.CACHE.Put(ctx.Request.URL.RequestURI(), results)
 			ctx.JSON(http.StatusOK, &results)
 			return
 		case "xml":
-			var subwg sync.WaitGroup
+			var csa models.CSA
+			var cbsa models.CBSA
+			var _wg sync.WaitGroup
 			var mu sync.RWMutex
+			workers := make(chan struct{}, CONNECTION_LIMIT)
 			resultScores := []serializers.ScoreResultsXML{}
 			for i := range scores {
-				subwg.Add(1)
+				_wg.Add(1)
 				go func(i int) {
-					defer subwg.Done()
-					var csa models.CSA
-					var cbsa models.CBSA
 					if csa_result := h.DB.Where(&models.CSA{Geoid: scores[i].Geoid}).First(&csa); csa_result.Error != nil {
 						csa.CSA_name = ""
 					}
@@ -199,7 +195,6 @@ func (h handler) GetScores(ctx *gin.Context) {
 						resultScores,
 						serializers.ScoreResultsXML{
 							XMLName:      xml.Name{Space: "result"},
-							ID:           i + query.Offset,
 							RankID:       scores[i].ID,
 							Geoid:        scores[i].Geoid,
 							CBSAName:     cbsa.CBSA_name,
@@ -210,11 +205,15 @@ func (h handler) GetScores(ctx *gin.Context) {
 						},
 					)
 					mu.Unlock()
+					defer func() {
+						_wg.Done()
+						<-workers
+					}()
 				}(i)
-				subwg.Wait()
 			}
+			_wg.Wait()
 			results := serializers.XMLResults{Scores: resultScores}
-			caches.CACHE.Put(url, results)
+			caches.CACHE.Put(ctx.Request.URL.RequestURI(), results)
 			ctx.XML(http.StatusOK, &results)
 			return
 		}
@@ -270,6 +269,7 @@ func (h handler) GetScoreDetails(ctx *gin.Context) {
 				BikeFatalityRank:        searchedRank.BikeFatalityRank,
 				BikeShareRank:           searchedRank.BikeShareRank,
 			}
+			caches.CACHE.Put(ctx.Request.URL.RequestURI(), result)
 			ctx.JSON(http.StatusOK, &result)
 			return
 		case "xml":
@@ -288,6 +288,7 @@ func (h handler) GetScoreDetails(ctx *gin.Context) {
 				BikeFatalityRank:        searchedRank.BikeFatalityRank,
 				BikeShareRank:           searchedRank.BikeShareRank,
 			}
+			caches.CACHE.Put(ctx.Request.URL.RequestURI(), result)
 			ctx.XML(http.StatusOK, &result)
 			return
 		}
@@ -329,11 +330,13 @@ func (h handler) GetScoreDetails(ctx *gin.Context) {
 		switch query.Format {
 		case "json":
 			result["format"] = "json"
+			caches.CACHE.Put(ctx.Request.URL.RequestURI(), result)
 			ctx.JSON(http.StatusOK, &result)
 			return
 		case "xml":
 			result["format"] = "xml"
 			result["result"] = xml.Name{}
+			caches.CACHE.Put(ctx.Request.URL.RequestURI(), result)
 			ctx.XML(http.StatusOK, &result)
 			return
 		default:
@@ -341,16 +344,3 @@ func (h handler) GetScoreDetails(ctx *gin.Context) {
 
 	}
 }
-
-// func (h handler) testEndpoint(ctx *gin.Context) {
-// 	param := ctx.Param("id")
-// 	id, err := strconv.ParseInt(param, 10, 64)
-// 	if err != nil {
-// 		fmt.Println(err)
-// 	}
-// 	var count int64
-// 	var ranks []models.Rank
-// 	h.DB.Model(&models.Rank{}).Where("geoid = ?", id).Find(&ranks).Count(&count)
-// 	fmt.Println("Number of values", count)
-// 	ctx.JSON(http.StatusOK, &ranks)
-// }

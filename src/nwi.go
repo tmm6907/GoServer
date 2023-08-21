@@ -1,11 +1,10 @@
 package main
 
 import (
-	"context"
 	"log"
+	"net/http"
 	"os"
 
-	"cloud.google.com/go/storage"
 	"github.com/gin-gonic/gin"
 	"nwi.io/nwi/api"
 	"nwi.io/nwi/db"
@@ -43,49 +42,24 @@ func handleFileError(err error, file string) {
 	}
 }
 func main() {
-	router := gin.Default()
 	flags := ACTIVATE_RELEASE_MODE
-
-	dbUser := os.Getenv("DB_USER")
-	if dbUser == "" {
-		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "DB_USER")
-	}
-	dbPass := os.Getenv("DB_PASS")
-	if dbPass == "" {
-		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "DB_PASS")
-	}
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "DB_NAME")
-	}
-	connectionName := os.Getenv("CLOUD_SQL_CONNECTION_NAME")
-	if connectionName == "" {
-		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "CLOUD_SQL_CONNECTION_NAME")
+	path := "opennwi.db"
+	router := gin.Default()
+	if flags&ACTIVATE_RELEASE_MODE != 0 {
+		gin.SetMode(gin.ReleaseMode)
 	}
 	port := os.Getenv("INTERNAL_PORT")
 	if port == "" {
 		log.Fatalf("Fatal Error in nwi.go: %s environment variable not set.", "INTERNAL_PORT")
 	}
-
-	path := "opennwi.db"
 	if flags&ACTIVATE_RELEASE_MODE != 0 {
-		gin.SetMode(gin.ReleaseMode)
 		router.Use(middleware.AuthenticateRequest())
-		ctx := context.Background()
-		client, err := storage.NewClient(ctx)
-		if err != nil {
-			panic(err)
-		}
-
-		bucket := client.Bucket("opennwi")
-		log.Println(bucket.Attrs(ctx))
 	}
-
 	gormDB, err := db.InitDB(path)
 	if err != nil {
 		log.Fatalln(err)
 	}
-
+	router.Use(middleware.HandleCachedResults())
 	if flags&CREATE_DB != 0 {
 		dbFile, err := api.ReadData(DB_FILE)
 		handleFileError(err, DB_FILE)
@@ -155,7 +129,11 @@ func main() {
 	if flags&CREATE_CBSA_DATAFRAME != 0 {
 		db.WriteToCBSADataframe(gormDB)
 	}
-
 	api.RegisterRoutes(router, gormDB)
+	router.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Visit https://rapidapi.com/tmm6907-9UaCoMqGQi/api/opennwi to get an API Key.",
+		})
+	})
 	router.Run(port)
 }

@@ -3,7 +3,6 @@ package serializers
 import "encoding/xml"
 
 type ScoreResults struct {
-	ID           int     `json:"id"`
 	RankID       uint    `json:"rankID"`
 	Geoid        uint64  `json:"geoid"`
 	CBSAName     string  `json:"cbsaName"`
@@ -15,7 +14,6 @@ type ScoreResults struct {
 
 type ScoreResultsXML struct {
 	XMLName      xml.Name `xml:"result"`
-	ID           int      `xml:"id,attr"`
 	RankID       uint     `xml:"rankID"`
 	Geoid        uint64   `xml:"geoid"`
 	CBSAName     string   `xml:"cbsaName"`

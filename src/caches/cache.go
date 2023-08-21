@@ -1,6 +1,8 @@
 package caches
 
-import "container/list"
+import (
+	"container/list"
+)
 
 type LRUCache struct {
 	capacity int
@@ -23,10 +25,10 @@ func NewLRUCache(capacity int) *LRUCache {
 	}
 }
 
-func (c *LRUCache) Get(key string) (interface{}, bool) {
+func (c *LRUCache) Get(key string) (*interface{}, bool) {
 	if elem, ok := c.cache[key]; ok {
 		c.lruList.MoveToFront(elem)
-		return elem.Value.(*CacheItem).value, true
+		return &elem.Value.(*CacheItem).value, true
 	}
 	return nil, false
 }
