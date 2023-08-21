@@ -41,11 +41,8 @@ func (h handler) GetScores(ctx *gin.Context) {
 	query.SetFormat()
 	switch {
 	case query.Address != "":
-		var wg sync.WaitGroup
-		wg.Add(1)
 		geoid := make(chan string)
 		go func() {
-			wg.Done()
 			res, err := query.GetGeoid()
 			if err != nil {
 				ctx.AbortWithError(http.StatusNotFound, err)
@@ -54,7 +51,6 @@ func (h handler) GetScores(ctx *gin.Context) {
 			geoid <- res
 		}()
 		var score models.Rank
-		var cbsa models.CBSA
 		geoid10, err := strconv.ParseUint(<-geoid, 10, 64)
 		if err != nil {
 			ctx.AbortWithError(http.StatusNotFound, err)
@@ -64,16 +60,11 @@ func (h handler) GetScores(ctx *gin.Context) {
 			ctx.AbortWithError(http.StatusNotFound, result.Error)
 			return
 		}
-		if result := h.DB.Where(&models.CBSA{Geoid: geoid10}).First(&cbsa); result.Error != nil {
-			ctx.AbortWithError(http.StatusNotFound, result.Error)
-			return
-		}
 		switch strings.ToLower(query.Format) {
 		case "json":
 			result := serializers.AddressScoreResult{
 				RankID:          score.ID,
 				Geoid:           geoid10,
-				CBSAName:        cbsa.CBSA_name,
 				NWI:             score.NWI,
 				TransitScore:    score.TransitScore,
 				BikeScore:       score.BikeScore,
@@ -88,7 +79,6 @@ func (h handler) GetScores(ctx *gin.Context) {
 				XMLName:         xml.Name{Space: "result"},
 				RankID:          score.ID,
 				Geoid:           geoid10,
-				CBSAName:        cbsa.CBSA_name,
 				NWI:             score.NWI,
 				TransitScore:    score.TransitScore,
 				BikeScore:       score.BikeScore,
@@ -96,12 +86,11 @@ func (h handler) GetScores(ctx *gin.Context) {
 				Format:          query.Format,
 			}
 			caches.CACHE.Put(ctx.Request.URL.RequestURI(), result)
+
 			ctx.XML(http.StatusOK, &result)
 			return
 		default:
 		}
-
-		wg.Wait()
 	case query.ZipCode != "":
 		var zipScores []models.Rank
 		var res []models.ZipCode
