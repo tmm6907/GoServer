@@ -38,9 +38,9 @@ Where **nwi** is the total score of walkability for the given area. Scores range
   <format>xml</format>
 </result>
 
-// list of scores (limit=3, format=xml)
+// list of score results (limit=3, format=xml)
 <results>
-  <result id="0">
+  <result>
     <rankID>115880</rankID>
     <geoid>271630710031</geoid>
     <cbsaName>Minneapolis-St. Paul-Bloomington, MN-WI</cbsaName>
@@ -49,7 +49,7 @@ Where **nwi** is the total score of walkability for the given area. Scores range
     <bikeScore>17</bikeScore>
     <format>xml</format>
   </result>
-  <result id="1">
+  <result>
     <rankID>115881</rankID>
     <geoid>271630710032</geoid>
     <cbsaName>Minneapolis-St. Paul-Bloomington, MN-WI</cbsaName>
@@ -58,7 +58,7 @@ Where **nwi** is the total score of walkability for the given area. Scores range
     <bikeScore>17</bikeScore>
     <format>xml</format>
   </result>
-  <result id="2">
+  <result>
     <rankID>115882</rankID>
     <geoid>271630710033</geoid>
     <cbsaName>Minneapolis-St. Paul-Bloomington, MN-WI</cbsaName>
@@ -72,7 +72,6 @@ Where **nwi** is the total score of walkability for the given area. Scores range
 // list of scores (limit=3, offset=130, format=json)
 [
   {
-    id:130
     rankID:15244
     geoid:511076118032
     cbsaName:"Washington-Arlington-Alexandria, DC-VA-MD-WV"
@@ -82,7 +81,6 @@ Where **nwi** is the total score of walkability for the given area. Scores range
     format:"json"
   }
   {
-    id:131
     rankID:15258
     geoid:511790102053
     cbsaName:"Washington-Arlington-Alexandria, DC-VA-MD-WV"
@@ -92,7 +90,6 @@ Where **nwi** is the total score of walkability for the given area. Scores range
     format:"json"
   }
   {
-    id:132
     rankID:15259
     geoid:511790102132
     cbsaName:"Washington-Arlington-Alexandria, DC-VA-MD-WV"
