@@ -3,7 +3,7 @@ package models
 import "time"
 
 type BlockGroup struct {
-	Geoid10     uint64 `gorm:"primary_key; auto_increment:false"`
+	Geoid10     uint64 `gorm:"primaryKey; auto_increment:false"`
 	Geoid20     uint64
 	GeoidDetail GeoidDetail `gorm:"ForeignKey:Geoid;OnUpdate:CASCADE,OnDelete:SET NULL"`
 	CSA         CSA         `gorm:"ForeignKey:Geoid;OnUpdate:CASCADE,OnDelete:SET NULL"`

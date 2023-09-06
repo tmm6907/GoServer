@@ -1,10 +1,11 @@
 package models
 
-import "gorm.io/gorm"
+import "time"
 
 type CSA struct {
-	gorm.Model
-	Geoid    uint64 `gorm:"ForeignKey:Geoid10;autoIncrement:false"`
-	CSA      uint16
-	CSA_name string
+	Geoid     uint64 `gorm:"ForeignKey:Geoid10;primaryKey;"`
+	CSA       uint16
+	CSA_name  string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }

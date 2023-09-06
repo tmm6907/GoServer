@@ -47,6 +47,7 @@ func main() {
 	router := gin.Default()
 	if flags&ACTIVATE_RELEASE_MODE != 0 {
 		gin.SetMode(gin.ReleaseMode)
+		path = "/home/nwi/go/go-web/opennwi.db"
 	}
 	port := os.Getenv("INTERNAL_PORT")
 	if port == "" {
@@ -131,8 +132,10 @@ func main() {
 	}
 	api.RegisterRoutes(router, gormDB)
 	router.GET("/", func(c *gin.Context) {
+		endpoints := []string{"/scores/", "/details/"}
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Visit https://rapidapi.com/tmm6907-9UaCoMqGQi/api/opennwi to get an API Key.",
+			"message":   "Welcome to OpenNWI, provider of local and regional walk, bike and tranist score!",
+			"endpoints": endpoints,
 		})
 	})
 	router.Run(port)

@@ -372,14 +372,20 @@ func WriteToCBSADataframe(db *gorm.DB) {
 }
 
 func InitDB(path string) (*gorm.DB, error) {
-	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{
+		SkipDefaultTransaction: true,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	result := db.Exec("PRAGMA journal_mode = WAL")
-	if result.Error != nil {
-		return nil, result.Error
+	// WALResult := db.Exec("PRAGMA journal_mode = WAL")
+	// if WALResult.Error != nil {
+	// 	return nil, WALResult.Error
+	// }
+	syncResult := db.Exec("PRAGMA synchronous = NORMAL")
+	if syncResult.Error != nil {
+		return nil, syncResult.Error
 	}
 
 	tablesResult := db.AutoMigrate(

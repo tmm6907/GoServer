@@ -1,10 +1,11 @@
 package models
 
-import "gorm.io/gorm"
+import "time"
 
 type State struct {
-	gorm.Model
 	Name           string
-	Statefp        uint8
+	Statefp        uint8          `gorm:"primaryKey;autoIncrement:false;"`
 	BikeFatalities BikeFatalities `gorm:"ForeignKey:Statefp;OnUpdate:CASCADE,OnDelete:SET NULL"`
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }

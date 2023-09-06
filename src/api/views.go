@@ -2,14 +2,16 @@ package api
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"nwi.io/nwi/caches"
 	"nwi.io/nwi/models"
 	"nwi.io/nwi/serializers"
@@ -35,7 +37,9 @@ func (h handler) GetScores(ctx *gin.Context) {
 	var query serializers.ScoreQuery
 	err := ctx.Bind(&query)
 	if err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error": "bad request",
+		})
 		return
 	}
 	query.SetFormat()
@@ -43,21 +47,32 @@ func (h handler) GetScores(ctx *gin.Context) {
 	case query.Address != "":
 		geoid := make(chan string)
 		go func() {
+			log.Println("Fetching Geoid...")
+			timerStart := time.Now()
 			res, err := query.GetGeoid()
+			timerEnd := time.Now()
 			if err != nil {
-				ctx.AbortWithError(http.StatusNotFound, err)
+				ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+					"error": "no results found",
+				})
 				return
 			}
+			duration := timerEnd.Sub(timerStart).Milliseconds()
+			log.Printf("Time elapsed %vms", duration)
 			geoid <- res
 		}()
 		var score models.Rank
 		geoid10, err := strconv.ParseUint(<-geoid, 10, 64)
 		if err != nil {
-			ctx.AbortWithError(http.StatusNotFound, err)
+			ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+				"error": "no results found",
+			})
 			return
 		}
-		if result := h.DB.Where(&models.Rank{Geoid: geoid10}).First(&score); result.Error != nil {
-			ctx.AbortWithError(http.StatusNotFound, result.Error)
+		if result := h.DB.Where(&models.Rank{Geoid: geoid10}).Select("ranks.id", "ranks.geoid", "ranks.transit_score", "ranks.bike_score", "ranks.nwi").First(&score); result.Error != nil {
+			ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+				"error": "no results found",
+			})
 			return
 		}
 		switch strings.ToLower(query.Format) {
@@ -92,151 +107,119 @@ func (h handler) GetScores(ctx *gin.Context) {
 		default:
 		}
 	case query.ZipCode != "":
-		var zipScores []models.Rank
-		var res []models.ZipCode
-		var scores []models.Rank
-		var _wg sync.WaitGroup
-		workers := make(chan struct{}, CONNECTION_LIMIT)
-		var mu sync.RWMutex
+		var ranks []models.Rank
+		var cbsas []uint32
+		var cbsaName []string
+		var geoids []uint64
 		query.SetLimit()
-		if result := h.DB.Where(&models.ZipCode{Zipcode: query.ZipCode}).Find(&res); result.Error != nil {
-			ctx.AbortWithError(http.StatusNotFound, result.Error)
+		if result := h.DB.Model(models.ZipCode{}).Select("cbsa").Where(&models.ZipCode{Zipcode: query.ZipCode}).Find(&cbsas); result.Error != nil {
+			ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+				"error": "no results found",
+			})
 			return
 		}
-		for _, item := range res {
-			_wg.Add(1)
-			go func(item models.ZipCode) {
-				workers <- struct{}{}
-				if result := h.DB.Limit(query.Limit).Offset(query.Offset).Where("cbsas.cbsa = ?", item.CBSA).Model(&models.Rank{}).Joins("left join cbsas on cbsas.geoid = ranks.geoid").Scan(&zipScores); result.Error != nil {
-					fmt.Println(result.Error)
-				}
-				mu.Lock()
-				scores = append(scores, zipScores...)
-				mu.Unlock()
-				defer func() {
-					<-workers
-					_wg.Done()
-				}()
-			}(item)
+		if result := h.DB.Select("ranks.id", "ranks.geoid", "ranks.transit_score", "ranks.bike_score", "ranks.nwi").Limit(query.Limit).Offset(query.Offset).Where("cbsas.cbsa IN ?", cbsas).Model(&models.Rank{}).Joins("left join cbsas on cbsas.geoid = ranks.geoid").Scan(&ranks); result.Error != nil {
+			ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+				"error": "no results found",
+			})
 		}
-		_wg.Wait()
+		for _, rank := range ranks {
+			geoids = append(geoids, rank.Geoid)
+		}
+		h.DB.Model(models.CBSA{}).Select("cbsa_name").Where("geoid IN ?", geoids).Find(&cbsaName)
 		switch query.Format {
 		case "json":
-			var csa models.CSA
-			var cbsa models.CBSA
 			var _wg sync.WaitGroup
-			var mu sync.RWMutex
-			workers := make(chan struct{}, CONNECTION_LIMIT)
-			results := []serializers.ScoreResults{}
-			for i := range scores {
+			resultScores := make(chan serializers.ScoreResults, len(ranks))
+			for i, rank := range ranks {
 				_wg.Add(1)
-				go func(i int) {
-					workers <- struct{}{}
-					if csa_result := h.DB.Where(&models.CSA{Geoid: scores[i].Geoid}).First(&csa); csa_result.Error != nil {
-						csa.CSA_name = ""
+				go func(i int, rank models.Rank) {
+					defer _wg.Done()
+					resultScores <- serializers.ScoreResults{
+						RankID:       rank.ID,
+						Geoid:        rank.Geoid,
+						CBSAName:     cbsaName[i],
+						NWI:          rank.NWI,
+						TransitScore: rank.TransitScore,
+						BikeScore:    rank.BikeScore,
+						Format:       query.Format,
 					}
-					if cbsa_result := h.DB.Where(&models.CBSA{Geoid: scores[i].Geoid}).First(&cbsa); cbsa_result.Error != nil {
-						cbsa.CBSA_name = ""
-					}
-					mu.Lock()
-					results = append(
-						results,
-						serializers.ScoreResults{
-							RankID:       scores[i].ID,
-							Geoid:        scores[i].Geoid,
-							CBSAName:     cbsa.CBSA_name,
-							NWI:          scores[i].NWI,
-							TransitScore: scores[i].TransitScore,
-							BikeScore:    scores[i].BikeScore,
-							Format:       query.Format,
-						},
-					)
-					mu.Unlock()
-					defer func() {
-						_wg.Done()
-						<-workers
-					}()
-				}(i)
+				}(i, rank)
 			}
 			_wg.Wait()
-
+			close(resultScores)
+			results := []serializers.ScoreResults{}
+			for result := range resultScores {
+				results = append(results, result)
+			}
 			caches.CACHE.Put(ctx.Request.URL.RequestURI(), results)
 			ctx.JSON(http.StatusOK, &results)
 			return
 		case "xml":
-			var csa models.CSA
-			var cbsa models.CBSA
 			var _wg sync.WaitGroup
-			var mu sync.RWMutex
-			workers := make(chan struct{}, CONNECTION_LIMIT)
-			resultScores := []serializers.ScoreResultsXML{}
-			for i := range scores {
+			resultScores := make(chan serializers.ScoreResultsXML, len(ranks))
+			for i, rank := range ranks {
 				_wg.Add(1)
-				go func(i int) {
-					if csa_result := h.DB.Where(&models.CSA{Geoid: scores[i].Geoid}).First(&csa); csa_result.Error != nil {
-						csa.CSA_name = ""
+				go func(i int, rank models.Rank) {
+					defer _wg.Done()
+					resultScores <- serializers.ScoreResultsXML{
+						XMLName:      xml.Name{Space: "result"},
+						RankID:       rank.ID,
+						Geoid:        rank.Geoid,
+						CBSAName:     cbsaName[i],
+						NWI:          rank.NWI,
+						TransitScore: rank.TransitScore,
+						BikeScore:    rank.BikeScore,
+						Format:       query.Format,
 					}
-					if cbsa_result := h.DB.Where(&models.CBSA{Geoid: scores[i].Geoid}).First(&cbsa); cbsa_result.Error != nil {
-						cbsa.CBSA_name = ""
-					}
-					mu.Lock()
-					resultScores = append(
-						resultScores,
-						serializers.ScoreResultsXML{
-							XMLName:      xml.Name{Space: "result"},
-							RankID:       scores[i].ID,
-							Geoid:        scores[i].Geoid,
-							CBSAName:     cbsa.CBSA_name,
-							NWI:          scores[i].NWI,
-							TransitScore: scores[i].TransitScore,
-							BikeScore:    scores[i].BikeScore,
-							Format:       query.Format,
-						},
-					)
-					mu.Unlock()
-					defer func() {
-						_wg.Done()
-						<-workers
-					}()
-				}(i)
+				}(i, rank)
 			}
 			_wg.Wait()
-			results := serializers.XMLResults{Scores: resultScores}
+			close(resultScores)
+			results := serializers.XMLResults{}
+			for result := range resultScores {
+				results.Scores = append(results.Scores, result)
+			}
 			caches.CACHE.Put(ctx.Request.URL.RequestURI(), results)
 			ctx.XML(http.StatusOK, &results)
 			return
 		}
 	default:
-		ctx.AbortWithError(http.StatusBadRequest, fmt.Errorf("bad request! make sure all required fields are filled"))
+		ctx.AbortWithError(http.StatusBadRequest, errors.New("bad request! make sure all required fields are filled"))
 		return
 	}
 }
 
 func (h handler) GetScoreDetails(ctx *gin.Context) {
 	var query serializers.DetailQuery
-	searchedRank := &models.Rank{}
+	var searchedRank models.Rank
+	var cbsa models.CBSA
 	stringRankID := ctx.Param("id")
-	if err := ctx.Bind(&query); err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, fmt.Errorf("bad request! make sure you've provided valid parameters: %s", err))
-		return
-	}
-	cbsa := &models.CBSA{}
 	if stringRankID == "" {
-		ctx.AbortWithError(http.StatusBadRequest, fmt.Errorf("bad request! provide rankID as id parameter"))
+		ctx.AbortWithError(http.StatusBadRequest, errors.New("bad request! provide rankID as id parameter"))
 		return
 	}
-	rankID, err := strconv.ParseUint(stringRankID, 10, 64)
-	if err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, fmt.Errorf("bad request! provide a valid rankID"))
+	if err := ctx.Bind(&query); err != nil {
+		ctx.AbortWithError(http.StatusBadRequest, errors.New("bad request! make sure you've provided valid parameters"))
 		return
 	}
 
-	if rankResult := h.DB.Model(&models.Rank{}).Where(&models.Rank{Model: gorm.Model{ID: uint(rankID)}}).First(&searchedRank); rankResult.Error != nil {
-		ctx.AbortWithError(http.StatusNotFound, fmt.Errorf("not found! make sure you have provided a valid rankID: %s", rankResult.Error))
+	rankID, err := strconv.ParseUint(stringRankID, 10, 64)
+	if err != nil {
+		ctx.AbortWithError(http.StatusBadRequest, errors.New("bad request! provide a valid rankID"))
 		return
 	}
-	if cbsaResult := h.DB.Model(&models.CBSA{}).Where(&models.CBSA{Geoid: searchedRank.Geoid}).First(&cbsa); cbsaResult.Error != nil {
-		ctx.AbortWithError(http.StatusNotFound, fmt.Errorf("not found!: %s", cbsaResult.Error))
+
+	if rankResult := h.DB.First(&searchedRank, uint(rankID)); rankResult.Error != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "no results found",
+		})
+		return
+	}
+	if cbsaResult := h.DB.First(&cbsa, searchedRank.Geoid); cbsaResult.Error != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "no results found",
+		})
 		return
 	}
 	query.SetFormat()
@@ -312,7 +295,7 @@ func (h handler) GetScoreDetails(ctx *gin.Context) {
 			case BikeRidershipPercentage:
 				result["bikeRidershipPercentage"] = cbsa.BikeRidershipPercentage
 			default:
-				ctx.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid field name: %s", field))
+				ctx.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid field name: '%s'", field))
 				return
 			}
 		}
